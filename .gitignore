@@ -1,0 +1,18 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ipynb_checkpoints/
+.DS_Store
+.env
+
+# datasets and model caches — regenerated, never committed
+data/
+datasets/
+.cache/
+*.index
+*.faiss
+
+# results/*.csv IS committed — it is the artifact the README cites
+!results/.gitkeep
