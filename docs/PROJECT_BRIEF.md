@@ -37,6 +37,27 @@ No chat UI. No agent framework. No fine-tuning. No Kubernetes. No cloud
 vector database. No serving endpoint. Scope creep into a chatbot is the
 failure mode for this repo.
 
+No hybrid retrieval / score fusion (RRF or otherwise) combining lexical
+and dense results — legitimate future work, not this repo, because it
+answers "does combining help" instead of "when does dense beat lexical."
+
+No cross-encoder or LLM reranking of retrieved results — legitimate
+future work, not this repo, because it measures reranking, not the
+retrievers being swept.
+
+No retrievers beyond the three named above (BM25, all-MiniLM-L6-v2,
+BAAI/bge-small-en-v1.5) — legitimate future work, not this repo, because
+the grid is fixed so the comparison stays controlled.
+
+No query expansion, rewriting, or generated pseudo-queries — legitimate
+future work, not this repo, because it changes what's being retrieved
+against, not how retrieval performs.
+
+No approximate nearest neighbour indexes (FAISS, HNSW, ScaNN) —
+legitimate future work, not this repo, because brute-force exact search
+over ~5k documents is fast enough, and ANN adds a recall approximation
+error that contaminates the metric being measured.
+
 ## Sessions
 1. Load SciFact + qrels; BM25 and one dense retriever; whole-document
    chunking only; recall@k / nDCG / MRR; results/sweep.csv; seeded;
