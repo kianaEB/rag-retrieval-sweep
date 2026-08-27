@@ -1,4 +1,4 @@
----
+﻿---
 inclusion: always
 ---
 
@@ -58,7 +58,7 @@ would pull one of these in early.
   only).
 - Failure bucketing.
 - `ANALYSIS.md`.
-- pytest over the metric functions and the data layer.
+- pytest over the data layer.
 - GitHub Actions CI.
 - `README.md` with the results table and the honest headline.
 - `SPEC.md` with design and threats to validity.
@@ -78,6 +78,9 @@ Session 1 is complete only when ALL of the following hold:
 - One entry point runs the sweep end to end from a config file in
   `configs/` on a clean checkout.
 - `requirements.txt` lists pinned exact versions.
+- `tests/` contains passing pytest coverage of the recall@k, nDCG@10,
+  and MRR@10 functions, including the pytrec_eval cross-check against
+  the same fixtures.
 
 Until every one of these holds, session-2 and session-3 items (see
 above) are refused, not just deferred. When refusing, state which

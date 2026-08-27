@@ -61,11 +61,11 @@ error that contaminates the metric being measured.
 ## Sessions
 1. Load SciFact + qrels; BM25 and one dense retriever; whole-document
    chunking only; recall@k / nDCG / MRR; results/sweep.csv; seeded;
-   requirements.txt; one entry point. Config-driven grid from day one.
-2. Full grid; failure bucketing; ANALYSIS.md; pytest over the metric
-   functions and the data layer; GitHub Actions CI; README.md with the
-   results table and the honest headline; SPEC.md with design and threats
-   to validity.
+   requirements.txt; one entry point; pytest over the metric functions.
+   Config-driven grid from day one.
+2. Full grid; failure bucketing; ANALYSIS.md; pytest over the data
+   layer; GitHub Actions CI; README.md with the results table and the
+   honest headline; SPEC.md with design and threats to validity.
 3. Stretch: groundedness gate over generated answers, quarantine rate,
    hand-checked sample.
 
