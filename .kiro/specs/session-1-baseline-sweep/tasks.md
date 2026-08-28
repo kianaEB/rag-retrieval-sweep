@@ -7,7 +7,7 @@ load and the full end-to-end run are last. `pytest` must be green
 (Tasks 6 and 9) before any download — of model weights or of the corpus —
 happens anywhere in the sequence.
 
-- [ ] 1. Resolve versions by installing unpinned, then pin `requirements.txt` from the frozen environment
+- [x] 1. Resolve versions by installing unpinned, then pin `requirements.txt` from the frozen environment
   - In a clean virtual environment, install the 8 top-level packages with
     no version pins: `pip install beir rank_bm25 sentence-transformers
     numpy pandas PyYAML pytest pytrec-eval-terrier`. Do not write any
