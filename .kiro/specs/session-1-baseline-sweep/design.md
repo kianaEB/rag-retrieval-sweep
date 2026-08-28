@@ -38,6 +38,9 @@ the Requirement 11 cross-check).
 ### Module layout
 
 ```
+pyproject.toml                # [tool.pytest.ini_options]: pythonpath = ["."],
+                               # testpaths = ["tests"] -- see Testing Strategy
+
 configs/
   sweep.yaml                  # the one Sweep_Config for session 1
 
@@ -1178,6 +1181,49 @@ legitimate future work but are out of scope for this spec.
 This spec has two test modules, `tests/test_metrics.py` (Requirement
 11) and `tests/test_orchestration.py` (Requirement 12), together
 forming the entire test surface for this spec.
+
+### How the test suite resolves the `src` package
+
+Both test modules import `src.*` (`src.metrics`,
+`src.sweep_runner`, `src.config`, `src.corpus_loader`). `python -m
+src.sweep_runner` (the production entry point, per `main()` above)
+resolves this import unaided, because `python -m` prepends the
+current working directory to `sys.path` — but bare `pytest`/`pytest
+-v` invoked from the repo root does not do this. Without `tests/`
+being a package (no `tests/__init__.py`) and without further
+configuration, pytest's default "rootless" import mode inserts each
+test file's own containing directory (`tests/`) at the front of
+`sys.path`, not the repo root — so `import src.metrics` fails with
+`ModuleNotFoundError: No module named 'src'` during collection, even
+though the identical import works fine when the sweep itself is run
+with `python -m`.
+
+This is fixed once, at the repo root, in `pyproject.toml`:
+
+```toml
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+```
+
+`pythonpath = ["."]` is pytest's own mechanism (via the
+`pytest-pythonpath`-equivalent built into pytest's `ini_options`) for
+prepending the rootdir to `sys.path` before test collection begins,
+so `import src.metrics` resolves the same `src/` package `python -m
+src.sweep_runner` resolves, without adding `tests/__init__.py` and
+without a `conftest.py` path hack. `testpaths = ["tests"]` makes
+`pytest` (with no arguments) collect only `tests/`, matching the
+structure steering's "`tests/` — pytest over metric functions and the
+data layer" boundary rather than also walking `data/`, `.venv/`, or
+other non-test directories. `pyproject.toml`'s presence at the repo
+root is also what gives pytest a `rootdir` to resolve `pythonpath =
+["."]` against — the two settings are not independent. Session 2's
+GitHub Actions workflow (`.github/workflows/`, "CI runs pytest only"
+per the tech steering) runs `pytest` from a fresh checkout with no
+extra flags; without this `pyproject.toml`, that CI run would fail
+collection with the same `ModuleNotFoundError` this section describes,
+so this file is a prerequisite for session 2's CI, not merely a local
+convenience.
 
 `tests/test_metrics.py` covers only the `Metrics_Calculator`
 functions. It:
