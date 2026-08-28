@@ -10,9 +10,9 @@ chunking only; evaluates at cutoffs k = 1, 5, 10, 20; and writes the 8
 resulting rows (2 retrievers x 4 cutoffs) with metrics, timing, and a
 fixed seed. The central correctness property of this spec is that
 top-k is an evaluation cutoff, not a separate retrieval run: each
-retriever is indexed once and queried once at the deepest cutoff
-(k=20), and that single ranked list per query is sliced to compute all
-four cutoffs' metrics.
+retriever is indexed once and queried once at Deepest_Cutoff, and that
+single ranked list per query is sliced to compute all four cutoffs'
+metrics.
 
 Out of scope for this spec: `README.md`, `SPEC.md`, `ANALYSIS.md`,
 GitHub Actions CI, failure bucketing, the `BAAI/bge-small-en-v1.5`
@@ -97,6 +97,33 @@ bad download occurred.
    SHALL raise an error identifying which of the three (corpus
    documents, test queries, or Qrels) failed to load, and SHALL NOT
    emit the count report described in Criterion 2.
+5. IF the Corpus_Loader loads zero corpus documents, zero test queries,
+   or zero Qrels entries, THEN THE Corpus_Loader SHALL raise an error
+   naming which of the three (corpus documents, test queries, or Qrels
+   entries) was empty, and SHALL NOT emit the count report described in
+   Criterion 2, and THE Sweep_Runner SHALL halt without writing
+   `results/sweep.csv`.
+6. THE Corpus_Loader SHALL verify that every document ID referenced in
+   the Qrels is present in the loaded corpus, and that every query ID
+   referenced in the Qrels is present in the loaded query set. IF any
+   such reference does not resolve, THEN THE Corpus_Loader SHALL raise
+   an error reporting the count of unresolved document ID references
+   and the count of unresolved query ID references, and THE
+   Sweep_Runner SHALL halt, so that a partial or truncated download is
+   detected without hard-coding any expected count.
+7. IF the Corpus_Loader fails to load one or more of the corpus
+   documents, test queries, or Qrels, THE Corpus_Loader MAY derive and
+   include partial counts for any successfully loaded component as
+   part of the error described in Criterion 4, and doing so SHALL NOT
+   constitute, and SHALL NOT be treated as, the count report described
+   in Criterion 2.
+8. IF the Corpus_Loader successfully loads the corpus documents, test
+   queries, and Qrels described in Criterion 1, but fails to derive or
+   emit the count report described in Criterion 2, THEN THE
+   Sweep_Runner SHALL abort the run before building any index, and
+   SHALL NOT write `results/sweep.csv`, consistent with Criterion 5 of
+   Requirement 8 — the count report is the only detector of a silent
+   truncation or partial download and is not an optional step.
 
 ### Requirement 2: Config-Driven Sweep Grid Definition
 
@@ -155,8 +182,9 @@ without post-hoc tuning.
    containing exactly the top Deepest_Cutoff document IDs ordered by
    descending BM25 score in a single retrieval run, breaking any tie
    between two documents with equal BM25 score by ascending corpus
-   document ID so that the Ranked_List order is identical across
-   repeated runs on the same corpus and query.
+   document ID, compared numerically (as integers, since BEIR SciFact
+   document IDs are numeric strings), so that the Ranked_List order is
+   identical across repeated runs on the same corpus and query.
 5. WHEN the BM25_Retriever completes the index build, THE
    BM25_Retriever SHALL record the wall-clock duration of the index
    build, in seconds, as Index_Time.
@@ -204,6 +232,12 @@ reproducible and stays within the CPU-only, no-paid-API constraints.
    loaded from the path under `data/`, THEN THE Dense_Retriever SHALL
    raise an error identifying that the model failed to load, without
    producing a Ranked_List.
+8. WHEN the Sweep_Runner queries the Dense_Retriever, THE
+   Dense_Retriever SHALL break any tie between two documents with
+   equal cosine similarity by ascending corpus document ID, compared
+   numerically (as integers, the same comparison rule applied by the
+   BM25_Retriever in Requirement 3.4), so that the Ranked_List order
+   is identical across repeated runs on the same corpus and query.
 
 ### Requirement 5: Single Retrieval Sliced to Four Cutoffs
 
@@ -220,7 +254,9 @@ four independent retrievals per retriever.
 2. THE Sweep_Runner SHALL execute exactly one retrieval run for each
    retriever declared in the Sweep_Config, across all queries, at the
    Deepest_Cutoff, producing for each query a Ranked_List containing
-   exactly 20 document IDs ordered by descending relevance score.
+   exactly Deepest_Cutoff document IDs ordered by descending relevance
+   score, or all corpus documents (ordered by descending relevance
+   score) if the corpus contains fewer than Deepest_Cutoff documents.
 3. THE Sweep_Runner SHALL derive the Ranked_List used to compute
    metrics at each evaluation cutoff k in {1, 5, 10, 20} by taking the
    first k document IDs, in ranked order, from the single
@@ -282,7 +318,9 @@ headline metric is not chosen after seeing results.
 4. IF a query-document pair is absent from the Qrels, or is present
    in the Qrels with a relevance score of zero or less, THEN THE
    Metrics_Calculator SHALL treat that query-document pair as not
-   relevant.
+   relevant, regardless of any similarity or relevance score produced
+   by a retriever or model, because the Qrels are the sole source of
+   relevance ground truth for this determination.
 5. THE Metrics_Calculator SHALL designate nDCG@10 as the primary
    metric and recall@k and MRR@10 as secondary metrics, with all
    three reported for every Sweep_Report row.
@@ -291,6 +329,11 @@ headline metric is not chosen after seeing results.
    Run_Id, because nDCG@10 and MRR@10 are computed once per Run_Id at
    a fixed cutoff of 10 rather than varying by the row's evaluation
    cutoff k.
+7. THE Metrics_Calculator SHALL make available, alongside each mean
+   computed by Criteria 1, 2, and 3, the total number of test queries
+   loaded and the number of those test queries with at least one
+   Qrels-judged relevant document (the denominator of that mean), so
+   that the Sweep_Runner can record both counts in the Sweep_Report.
 
 ### Requirement 7: Sweep Report Output Format and Row Count
 
@@ -315,8 +358,13 @@ without missing data.
    evaluation cutoff; recall@k evaluated at that row's evaluation
    cutoff; nDCG@10 evaluated at a fixed cutoff of 10 independent of
    the row's evaluation cutoff; MRR@10 evaluated at a fixed cutoff of
-   10 independent of the row's evaluation cutoff; Index_Time; and
-   Query_Latency.
+   10 independent of the row's evaluation cutoff; Index_Time;
+   Query_Latency; the total number of test queries loaded; and the
+   number of those test queries that have at least one Qrels-judged
+   relevant document (the number of queries scored, i.e. the
+   denominator of the recall@k, nDCG@10, and MRR@10 means for that
+   row), so that the denominator of every reported mean is visible in
+   the artifact.
 4. THE Sweep_Runner SHALL assign the same run_id value to every
    Sweep_Report row that shares the same retriever and the same
    chunking strategy, and SHALL assign a different run_id value to
@@ -348,11 +396,16 @@ reruns on the same machine.
    integer value, used across the run.
 2. WHEN the Sweep_Runner starts a run, THE Sweep_Runner SHALL apply
    the fixed random seed declared in the Sweep_Config to Python's
-   `random` module, to NumPy's random number generator, and to the
-   Dense_Retriever's embedding batch ordering, before executing any
-   embedding or evaluation step of that run.
-3. THE Sweep_Runner SHALL record the fixed random seed value applied
-   for a run in a single accompanying run configuration record.
+   `random` module, to NumPy's random number generator, to `torch`
+   via `torch.manual_seed(seed)`, and to the Dense_Retriever's
+   embedding batch ordering, before executing any embedding or
+   evaluation step of that run.
+3. THE Sweep_Runner SHALL write a single accompanying run
+   configuration record to `results/`, alongside the Sweep_Report,
+   recording: the fixed random seed value applied for the run; the
+   resolved contents of the Sweep_Config used for the run; and the
+   installed version of each of `beir`, `rank_bm25`,
+   `sentence-transformers`, `torch`, and `numpy`.
 4. WHILE the fixed random seed and the input data remain unchanged,
    THE Sweep_Runner SHALL produce recall@k, nDCG@10, and MRR@10
    values that are exactly equal, at the numeric precision written to
@@ -365,6 +418,12 @@ reruns on the same machine.
    except Index_Time and Query_Latency, rather than by an automated
    pytest test in this spec; automated verification of rerun-identity
    SHALL be deferred to a later spec.
+5. IF applying the fixed random seed to Python's `random` module, to
+   NumPy's random number generator, to `torch` via
+   `torch.manual_seed(seed)`, or to the Dense_Retriever's embedding
+   batch ordering fails for any reason, THEN THE Sweep_Runner SHALL
+   abort the run before executing any embedding or evaluation step,
+   and SHALL NOT write `results/sweep.csv`.
 
 ### Requirement 9: Pinned Dependency Versions
 
@@ -390,6 +449,10 @@ reproducible on a clean checkout.
    to an exact version using the `==` operator.
 4. THE `requirements.txt` file SHALL NOT contain more than one entry
    for the same package name.
+5. IF any line in `requirements.txt` declares a dependency without an
+   exact version pin using the `==` operator, THEN THE entire
+   `requirements.txt` file SHALL be considered invalid, rather than
+   treating only that individual entry as invalid.
 
 ### Requirement 10: Single Entry Point for End-to-End Sweep Execution
 
@@ -412,14 +475,22 @@ checkout, so that the study is reproducible without manual steps.
    the `data/` or `results/` directories, or edit source code at any
    point between invoking the entry point and the Sweep_Report being
    written.
-3. WHEN the Sweep_Runner completes all steps successfully, THE
-   Sweep_Runner SHALL terminate with a zero exit status and leave the
-   Sweep_Report present at `results/sweep.csv`.
-4. IF any step of the sweep (corpus loading, indexing, retrieval,
-   metric computation, or Sweep_Report writing) fails, THEN THE
-   Sweep_Runner SHALL terminate with a non-zero exit status, SHALL
-   report an error identifying which step failed, and SHALL NOT leave
-   a partial or corrupted Sweep_Report at `results/sweep.csv`.
+3. WHEN the Sweep_Runner completes all steps and every Sweep_Report
+   row was computed without a missing-value marker, THE Sweep_Runner
+   SHALL terminate with a zero exit status and leave the Sweep_Report
+   present at `results/sweep.csv`.
+4. IF corpus loading, Sweep_Config parsing, or Sweep_Report writing
+   fails outright, THEN THE Sweep_Runner SHALL terminate with a
+   non-zero exit status, SHALL report an error identifying which step
+   failed, and SHALL NOT leave a partial or corrupted Sweep_Report at
+   `results/sweep.csv`. IF an individual retriever x cutoff
+   combination's retrieval or metric computation fails while other
+   combinations succeed, THEN THE Sweep_Runner SHALL apply the
+   missing-value-marker recovery described in Requirement 7 for that
+   combination, SHALL still write every declared combination's row to
+   the Sweep_Report, whether computed or marked missing, and SHALL
+   terminate with a non-zero exit status, because a run in which any
+   declared combination failed is not a successful run.
 5. THE Sweep_Runner SHALL direct every BEIR dataset download and every
    Hugging Face model weight download triggered during the run to a
    path under `data/`.
@@ -462,7 +533,14 @@ dependency on the data-loading layer or the sweep runner.
    Metrics_Calculator function agrees with the value produced by
    `pytrec_eval` on the same fixture to within a numeric tolerance of
    1e-6, so that a convention error, as opposed to only an arithmetic
-   error, is caught. `pytrec_eval` SHALL be treated as a transitive
+   error, is caught. Because `pytrec_eval`'s `recip_rank` measure is
+   computed over the full submitted ranking rather than a fixed
+   cutoff, THE test suite SHALL truncate the ranked list passed to
+   `pytrec_eval` to the top 10 documents per query before the MRR@10
+   comparison only; the `ndcg_cut_10` and `recall_<k>` comparisons
+   SHALL pass the full ranked list to `pytrec_eval` without
+   truncation, since those `pytrec_eval` measures already apply their
+   own cutoff. `pytrec_eval` SHALL be treated as a transitive
    dependency of `beir` (installed via the `pytrec-eval-terrier` PyPI
    package, which provides the `pytrec_eval` import), and SHALL be
    pinned to an exact version in `requirements.txt` per Requirement 9.
