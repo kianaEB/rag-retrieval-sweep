@@ -49,7 +49,7 @@ src/
   corpus_loader.py            # Corpus_Loader: load + validate + count report
   metrics.py                  # Metrics_Calculator: recall_at_k, ndcg_at_10, mrr_at_10
   report.py                   # SweepReportRow, write_sweep_report(), run config record
-  sweep_runner.py             # Sweep_Runner: orchestration + CLI entry point (__main__)
+  sweep_runner.py             # Sweep_Runner: run_sweep() orchestration loop + main() CLI entry point
   retrievers/
     __init__.py
     base.py                   # Retriever protocol, RetrievalRun dataclass
@@ -58,6 +58,7 @@ src/
 
 tests/
   test_metrics.py             # Requirement 11 fixture tests + pytrec_eval cross-check
+  test_orchestration.py       # Requirement 12 call-counting / slice test (Stub_Retriever)
 
 results/
   sweep.csv                   # generated artifact (Sweep_Report)
@@ -68,7 +69,8 @@ data/                          # gitignored; BEIR + HF cache root
 
 This matches the structure steering directly: `configs/` holds the
 grid as data, `src/` holds loading/retrievers/metrics/entry point,
-`tests/` holds only the Requirement 11 metric tests.
+`tests/` holds the Requirement 11 metric tests and the Requirement 12
+orchestration-loop test.
 
 ### Component diagram
 
@@ -646,6 +648,70 @@ Orchestration, in order:
    1.8). Print `report.as_log_line()` (Requirement 1.2) — reaching
    this line means the report was successfully produced, since
    `load_scifact` never returns without one.
+
+**The injection seam (Requirement 12).** Steps 5-7 below are
+implemented in a separate function, `run_sweep`, factored out of
+`main()` specifically so the orchestration loop can be driven
+directly by a test — with an in-memory `CorpusBundle` and without a
+real `BM25Retriever`/`DenseRetriever` — instead of only through the
+full `main()` path (config parsing, cache configuration, seeding, and
+a real BEIR load). `main()` never constructs `BM25Retriever` or
+`DenseRetriever` directly; it constructs a retriever *factory* and
+passes that factory into `run_sweep`, which is the only place in
+production code that calls a retriever's constructor:
+
+```python
+RetrieverFactory = Callable[[Union[BM25RetrieverConfig, DenseRetrieverConfig]], Retriever]
+
+def make_default_retriever_factory(cache_folder: Path) -> RetrieverFactory:
+    """Production factory used by main(). Closes over cache_folder
+    (config.data_dir / "hf_cache") so DenseRetriever always receives
+    the same cache path configure_caches() pointed HF_HOME/HF_HUB_CACHE
+    at. BM25Retriever and DenseRetriever are imported inside this
+    function body (BM25Retriever eagerly available; DenseRetriever via
+    the same deferred, post-configure_caches import discipline as step
+    2), so importing sweep_runner.py itself never imports either
+    retriever module at top level."""
+    def factory(retriever_config: BM25RetrieverConfig | DenseRetrieverConfig) -> Retriever:
+        if isinstance(retriever_config, BM25RetrieverConfig):
+            from src.retrievers.bm25_retriever import BM25Retriever
+            return BM25Retriever(retriever_config)
+        if isinstance(retriever_config, DenseRetrieverConfig):
+            from src.retrievers.dense_retriever import DenseRetriever
+            return DenseRetriever(retriever_config, cache_folder=cache_folder)
+        raise ConfigError(f"unsupported retriever config type: {type(retriever_config)!r}")
+    return factory
+
+def run_sweep(
+    config: SweepConfig,
+    bundle: CorpusBundle,
+    retriever_factory: RetrieverFactory,
+) -> Tuple[List[SweepReportRow], bool]:
+    """Steps 5-7: the retriever loop, metric computation, and row
+    assembly. Never imports beir, sentence-transformers, or
+    huggingface_hub itself, and never constructs a retriever except by
+    calling `retriever_factory(retriever_config)` — this is what makes
+    it possible for tests/test_orchestration.py (Requirement 12) to
+    call run_sweep with an in-memory bundle and a factory that returns
+    Stub_Retriever instances, exercising the exact same loop `main()`
+    runs in production, with no config file, no cache setup, no seed,
+    and no network access anywhere on the call path. Returns
+    (rows, all_succeeded) so main() (step 8) can derive its exit
+    status without recomputing anything."""
+```
+
+`main()` calls `run_sweep(config, bundle,
+retriever_factory=make_default_retriever_factory(config.data_dir /
+"hf_cache"))`. `tests/test_orchestration.py` instead calls `run_sweep`
+directly with a hand-built `SweepConfig`, a hand-built `CorpusBundle`
+of at most 5 documents, and a `retriever_factory` that returns one
+`Stub_Retriever` per retriever name declared in that `SweepConfig` —
+skipping `main()`'s steps 1-4 entirely (no YAML file, no
+`configure_caches`, no `apply_seed`, no `load_scifact`), since
+Requirement 12 scopes the test to the orchestration loop itself, not
+to config parsing or corpus loading. See Testing Strategy below for
+the test's full shape.
+
 5. `deepest_cutoff = max(config.cutoffs)`. Passed to each retriever's
    `retrieve_all` unmodified as `top_k=deepest_cutoff`; the retriever
    itself returns `min(top_k, corpus size)` document IDs per query
@@ -678,20 +744,26 @@ Orchestration, in order:
      glossary). Computed before the `try` block below, since `run_id`
      itself never fails and every row of this iteration — including
      an all-`"NA"` row on total failure — needs it.
-   - `try:` construct the retriever (`BM25Retriever` or
-     `DenseRetriever`), then call `build_index`, then call
-     `retrieve_all(queries, top_k=deepest_cutoff)` — all three calls
-     inside one `try/except` block. Retriever construction is inside
-     this block, not before it, specifically so that
-     `DenseRetriever.__init__`'s `ModelLoadError` (Requirement 4.7,
-     including the cache-path assertion described in
+   - `try:` construct the retriever via `retriever =
+     retriever_factory(retriever_config)` (never `BM25Retriever(...)`
+     or `DenseRetriever(...)` called directly in this loop — see "The
+     injection seam" above), then call `retriever.build_index(...)`,
+     then call `retriever.retrieve_all(queries, top_k=deepest_cutoff)`
+     — all three calls inside one `try/except` block. Retriever
+     construction is inside this block, not before it, specifically so
+     that `DenseRetriever.__init__`'s `ModelLoadError` (Requirement
+     4.7, including the cache-path assertion described in
      `src/retrievers/dense_retriever.py` above) is caught here and
      degrades only this run_id's 4 rows to `"NA"`, the same as a
      `build_index`/`retrieve_all` failure, rather than propagating up
      and halting the whole run — this is what the Error Handling
      table's "Dense model weights fail to download/load" row already
      claims. On success, this yields exactly one `RetrievalRun` per
-     retriever (2 total across the whole run — Requirement 5.5).
+     retriever (2 total across the whole run — Requirement 5.5). This
+     is also the exact call shape `tests/test_orchestration.py`
+     exercises against a `Stub_Retriever`, since `retriever_factory`
+     is the only construction path and is fully swappable
+     (Requirement 12.1, 12.4).
    - On failure of that block: catch, wrap as `RetrievalError`, and
      record that **this run_id's 4 rows** get the missing-value
      marker for `index_time`/`query_latency`/`recall@k`/`ndcg@10`/
@@ -876,19 +948,26 @@ bridge between human-readable specifications and machine-verifiable
 correctness guarantees.*
 
 Verification scope, stated up front: automated verification in this
-spec is limited to what Requirement 11 covers — the
-`Metrics_Calculator` formulas (`recall_at_k`, `ndcg_at_10`,
-`mrr_at_10`) via hand-built fixture tests plus the `pytrec_eval`
-differential cross-check (see Testing Strategy below). Properties 1,
-2, 3, 5, and 7 are structural/architectural properties of the
-`Sweep_Runner`, enforced by the shape of the code described in
-"Components and Interfaces" rather than by a runtime assertion, and
-are **not** covered by an automated test in this spec — `Sweep_Runner`
-tests are explicitly deferred per Requirement 11.4, consistent with the
-"What is explicitly not tested in this spec" list at the end of
-Testing Strategy. Properties 4 and 6 each have a metric-level aspect
-that Requirement 11's fixture/`pytrec_eval` tests do exercise, noted
-per property below, alongside the structural aspect that does not.
+spec covers the `Metrics_Calculator` formulas (`recall_at_k`,
+`ndcg_at_10`, `mrr_at_10`) via Requirement 11's hand-built fixture
+tests plus the `pytrec_eval` differential cross-check, and it covers
+the `Sweep_Runner` orchestration loop's call-count and slicing
+behavior via Requirement 12's `tests/test_orchestration.py` (see
+Testing Strategy below). Properties 1 and 2 are exercised directly by
+`tests/test_orchestration.py`, using a `Stub_Retriever` and an
+in-memory corpus, so they carry both a structural basis (the shape of
+`run_sweep`'s loop, described in "Components and Interfaces") and an
+automated-test basis. Properties 3, 5, and 7 remain
+structural/architectural properties of the `Sweep_Runner`, enforced by
+the shape of the code rather than by a runtime assertion, and are
+**not** covered by an automated test in this spec — end-to-end
+`Sweep_Runner` tests over the real corpus, and tests of the
+missing-value-marker recovery paths specifically, remain deferred per
+Requirement 11.4, consistent with the "What is explicitly not tested in
+this spec" list at the end of Testing Strategy. Properties 4 and 6 each
+have a metric-level aspect that Requirement 11's fixture/`pytrec_eval`
+tests do exercise, noted per property below, alongside a structural
+aspect that does not.
 
 ### Property 1: Exactly-two-operations
 
@@ -898,14 +977,19 @@ index builds and exactly 2 retrieval runs in total — exactly one index
 build and one retrieval run per retriever — regardless of how many
 cutoffs are declared.
 
-**Validates: Requirements 5.1, 5.5**
+**Validates: Requirements 5.1, 5.5, 12.4**
 
-Upheld by: the Sweep_Runner's per-retriever loop (`src/sweep_runner.py`
-step 6 in Components and Interfaces), which calls `build_index` and
-`retrieve_all` exactly once per retriever config. This is a
-shape-of-the-loop guarantee, not a counted or asserted runtime check,
-and is not covered by an automated test in this spec (Sweep_Runner
-tests deferred per Requirement 11.4).
+Upheld by: `run_sweep`'s per-retriever loop (`src/sweep_runner.py`
+step 6 in Components and Interfaces), which calls
+`retriever.build_index` and `retriever.retrieve_all` exactly once per
+retriever config, on whatever `Retriever` the injected
+`retriever_factory` returns. Verified by
+`tests/test_orchestration.py` (Requirement 12), which drives
+`run_sweep` with one `Stub_Retriever` per declared retriever and
+asserts each stub's recorded call count is exactly one `build_index`
+call and exactly one `retrieve_all` call (see Testing Strategy below)
+— this is now an automated-test-verified property, not merely a
+shape-of-the-loop guarantee inferred from code review.
 
 ### Property 2: Slice-not-reretrieve
 
@@ -916,14 +1000,20 @@ single Deepest_Cutoff Ranked_List for that query — that is,
 k — and no additional retrieval call is issued to the retriever for
 any cutoff.
 
-**Validates: Requirements 5.2, 5.3, 5.4**
+**Validates: Requirements 5.2, 5.3, 5.4, 12.5, 12.6**
 
-Upheld by: the Sweep_Runner's k-loop (`src/sweep_runner.py` step 6, and
-the "Sequence: single retrieval sliced to four cutoffs" diagram in
+Upheld by: `run_sweep`'s k-loop (`src/sweep_runner.py` step 6, and the
+"Sequence: single retrieval sliced to four cutoffs" diagram in
 Architecture), which slices the one `ranked_lists` object returned by
-`retrieve_all` and never calls `Ret` again inside the loop. Structural,
-not runtime-checked, and not covered by an automated test in this spec
-(Sweep_Runner tests deferred per Requirement 11.4).
+`retrieve_all` and never calls the retriever again inside the loop.
+Verified by `tests/test_orchestration.py` (Requirement 12), which
+asserts, for every declared cutoff k and every query in the
+`In_Memory_Test_Corpus`'s query set, that the row-level ranked list
+used for that cutoff equals `full_ranked_list[:k]`, and that a
+`Stub_Retriever`'s single recorded `retrieve_all` call was made with
+`top_k=deepest_cutoff` with no further `retrieve_all` call recorded
+for any other cutoff — this is now an automated-test-verified
+property.
 
 ### Property 3: Run-level constancy
 
@@ -1085,7 +1175,12 @@ legitimate future work but are out of scope for this spec.
 
 ### Scope
 
-`tests/test_metrics.py` is the entire test surface for this spec. It:
+This spec has two test modules, `tests/test_metrics.py` (Requirement
+11) and `tests/test_orchestration.py` (Requirement 12), together
+forming the entire test surface for this spec.
+
+`tests/test_metrics.py` covers only the `Metrics_Calculator`
+functions. It:
 - Imports only `src.metrics` (`recall_at_k`, `ndcg_at_10`,
   `mrr_at_10`, `judged_relevant_docs`). It does not import
   `src.corpus_loader`, `src.sweep_runner`, or any retriever module
@@ -1094,6 +1189,15 @@ legitimate future work but are out of scope for this spec.
   Python literals defined in the test file (Requirement 11.3).
 - Compares floats with a `1e-6` tolerance (`pytest.approx(expected,
   abs=1e-6)`) throughout (Requirement 11.2).
+
+`tests/test_orchestration.py` covers only the `Sweep_Runner`'s
+orchestration loop (`run_sweep`), against a `Stub_Retriever` and an
+in-memory corpus, not the real `BM25_Retriever`/`Dense_Retriever` and
+not the real BEIR corpus. See "Orchestration loop test
+(`tests/test_orchestration.py`, Requirement 12)" below for its full
+shape; it is a distinct test surface from `test_metrics.py` and the
+two modules do not share fixtures or imports beyond `src.sweep_runner`
+and `src.retrievers.base` (`Retriever`, `RetrievalRun`).
 
 ### Fixture design
 
@@ -1194,16 +1298,145 @@ Requirement 9/11.5 (it is a transitive dependency surface of `beir`'s
 evaluation utilities and is the package that provides the
 `pytrec_eval` import).
 
+### Orchestration loop test (`tests/test_orchestration.py`, Requirement 12)
+
+This test exercises `run_sweep` (see "The injection seam" in `src/sweep_runner.py`
+above) directly, bypassing `main()`'s config-parsing, cache-configuration,
+seeding, and real-BEIR-loading steps entirely. It makes no network
+call, loads no model, and never imports `beir` or
+`sentence-transformers`.
+
+**`Stub_Retriever`** lives in the test module (or a small fixtures
+module imported only by tests) and implements the `Retriever` protocol
+from `src/retrievers/base.py`:
+
+```python
+class StubRetriever:
+    """Requirement 12 test double. Implements the Retriever protocol.
+    Records every build_index/retrieve_all call for later assertion;
+    performs no real computation, downloads no model, makes no
+    network call."""
+
+    def __init__(self, name: str, fixed_ranked_lists: Dict[str, List[str]]) -> None:
+        self.name = name
+        self._fixed_ranked_lists = fixed_ranked_lists   # query_id -> hand-specified doc IDs
+        self.build_index_calls: List[Dict[str, Dict[str, str]]] = []
+        self.retrieve_all_calls: List[Tuple[Dict[str, str], int]] = []
+
+    def build_index(self, corpus: Dict[str, Dict[str, str]]) -> float:
+        self.build_index_calls.append(corpus)
+        return 0.0   # index_time; value is irrelevant to this test
+
+    def retrieve_all(
+        self, queries: Dict[str, str], top_k: int
+    ) -> Tuple[Dict[str, List[str]], float]:
+        self.retrieve_all_calls.append((queries, top_k))
+        ranked_lists = {
+            qid: self._fixed_ranked_lists[qid][:top_k] for qid in queries
+        }
+        return ranked_lists, 0.0   # query_latency; value is irrelevant to this test
+```
+
+**`In_Memory_Test_Corpus`** is a handful of Python literals defined in
+the test module, satisfying Requirement 12.3's ≤5-document limit:
+
+```python
+TEST_CORPUS = {
+    "1": {"title": "t1", "text": "doc one"},
+    "2": {"title": "t2", "text": "doc two"},
+    "3": {"title": "t3", "text": "doc three"},
+}
+TEST_QUERIES = {"q1": "query one", "q2": "query two"}
+TEST_QRELS = {"q1": {"1": 1}, "q2": {"2": 1}}
+```
+
+**Test shape.** A hand-built `SweepConfig` declares two retrievers
+(e.g. `"stub-a"`, `"stub-b"`) so the test also exercises the "exactly
+2 index builds, exactly 2 retrieval runs across the whole run"
+property (Requirement 5.5) with a multi-retriever grid, not just a
+single stub. Each `Stub_Retriever` instance is given a fixed
+`Deepest_Cutoff`-length `Ranked_List` per query, longer than every
+declared cutoff, so the prefix-slice assertion (Requirement 12.6) has
+something non-trivial to check at every `k`:
+
+```python
+def test_run_sweep_calls_each_retriever_exactly_once():
+    stub_a = StubRetriever("stub-a", fixed_ranked_lists={
+        "q1": ["3", "1", "2"], "q2": ["1", "2", "3"],
+    })
+    stub_b = StubRetriever("stub-b", fixed_ranked_lists={
+        "q1": ["2", "3", "1"], "q2": ["3", "1", "2"],
+    })
+    factory_calls = iter([stub_a, stub_b])
+    config = make_test_sweep_config(retriever_names=["stub-a", "stub-b"],
+                                     cutoffs=(1, 2, 3))
+    bundle = CorpusBundle(corpus=TEST_CORPUS, queries=TEST_QUERIES, qrels=TEST_QRELS)
+
+    rows, all_succeeded = run_sweep(
+        config, bundle, retriever_factory=lambda _rc: next(factory_calls)
+    )
+
+    deepest_cutoff = max(config.cutoffs)   # 3
+    for stub in (stub_a, stub_b):
+        # Requirement 12.4: exactly one build_index, one retrieve_all
+        assert len(stub.build_index_calls) == 1
+        assert len(stub.retrieve_all_calls) == 1
+        # Requirement 12.5: the single retrieve_all call requested Deepest_Cutoff
+        _queries_arg, top_k_arg = stub.retrieve_all_calls[0]
+        assert top_k_arg == deepest_cutoff
+
+    # Requirement 12.6: every row's ranked list is a prefix slice of the
+    # single deepest-cutoff list, for every declared k and every query.
+    for stub in (stub_a, stub_b):
+        full = stub._fixed_ranked_lists   # the single retrieve_all response, per query
+        for k in config.cutoffs:
+            row_ranked_lists = ranked_lists_used_for_row(rows, retriever=stub.name, k=k)
+            for qid, sliced in row_ranked_lists.items():
+                assert sliced == full[qid][:k]
+
+    assert all_succeeded is True
+```
+
+(`make_test_sweep_config` and `ranked_lists_used_for_row` are small
+test-only helpers; `ranked_lists_used_for_row` recovers, from the
+`SweepReportRow`/`recall_at_k` computation path, which document IDs
+were actually scored for a given row — in practice this is exposed by
+having `run_sweep` retain the sliced list alongside each row during
+the k-loop rather than discarding it after computing `recall_at_k`,
+so the test can assert against it directly instead of reverse-engineering
+it from the recall value.)
+
+This single test body covers Requirement 12.1 (Stub_Retriever
+implements the protocol and records calls), 12.2 (no real computation,
+no model, no network — the stub's `retrieve_all` returns only from
+`fixed_ranked_lists`), 12.3 (≤5-document in-memory corpus), 12.4
+(exactly one call each), 12.5 (Deepest_Cutoff requested, no per-cutoff
+call), and 12.6 (prefix-slice equality per cutoff per query). A second,
+smaller test asserts the analogous "no relevant document reachable"
+edge case is not needed here — Requirement 12 does not require metric
+edge-case coverage, only call-count and slicing behavior — so no
+additional fixture variants are required beyond this one multi-retriever,
+multi-cutoff case.
+
 ### What is explicitly not tested in this spec
 
 - `src/corpus_loader.py` (Corpus_Loader) — no tests in this spec
   (Requirement 11.4); deferred to a later spec.
-- `src/sweep_runner.py` (Sweep_Runner), including the single-retrieval-
-  sliced-to-four-cutoffs orchestration and the missing-value-marker
-  recovery paths — no automated tests in this spec (Requirement 11.4);
-  deferred to a later spec.
+- `src/sweep_runner.py` (Sweep_Runner) end-to-end against the real BEIR
+  corpus, and the missing-value-marker recovery paths (Requirement 7.8
+  / the Error Handling table) specifically — no automated tests in
+  this spec; deferred to a later spec. The orchestration loop itself
+  (single-retrieval-sliced-to-four-cutoffs call counting and slicing,
+  Properties 1 and 2) now *does* have automated coverage in this spec
+  via `tests/test_orchestration.py` (Requirement 12), using a
+  `Stub_Retriever` and an in-memory corpus — this is narrower than a
+  real end-to-end test and does not exercise `main()`, `load_scifact`,
+  `configure_caches`, `apply_seed`, or either real retriever
+  implementation.
 - `src/retrievers/*` (BM25_Retriever, Dense_Retriever) — no automated
-  tests in this spec; not named in Requirement 11's scope.
+  tests in this spec; not named in Requirement 11 or Requirement 12's
+  scope. `Requirement 12` tests only the `Retriever` protocol boundary
+  via `Stub_Retriever`, not either concrete implementation.
 - Rerun-identity (Requirement 8.4) — verified manually for session 1
   by running the entry point twice and diffing `results/sweep.csv`
   cell-by-cell (excluding `index_time`/`query_latency`), not by an
