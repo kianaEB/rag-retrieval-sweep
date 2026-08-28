@@ -58,10 +58,24 @@ would pull one of these in early.
   only).
 - Failure bucketing.
 - `ANALYSIS.md`.
-- pytest over the data layer.
+- pytest over the data layer (tests that load or exercise the real
+  Corpus_Loader against BEIR SciFact).
+- End-to-end tests over the real corpus (tests that run the
+  Sweep_Runner against the real BEIR SciFact data rather than an
+  in-memory stub corpus).
 - GitHub Actions CI.
 - `README.md` with the results table and the honest headline.
 - `SPEC.md` with design and threats to validity.
+
+Session 1 does, however, include a call-counting test of the
+Sweep_Runner orchestration loop itself: a stub `Retriever` implementing
+the base protocol, which records its own calls, is run over a small
+(no more than 5 documents) in-memory corpus, with no network call and
+no model loaded. That test verifies exactly one `build_index` call
+and one `retrieve_all` call per retriever, and that every cutoff's
+ranked list is a prefix slice of the single deepest-cutoff list. This
+is distinct from — and does not pull forward — the data-layer tests
+and real-corpus end-to-end tests listed above, which remain session 2.
 
 **Session 3 (stretch):**
 - Groundedness gate over generated answers.
@@ -81,6 +95,12 @@ Session 1 is complete only when ALL of the following hold:
 - `tests/` contains passing pytest coverage of the recall@k, nDCG@10,
   and MRR@10 functions, including the pytrec_eval cross-check against
   the same fixtures.
+- `tests/` contains a passing call-counting test of the Sweep_Runner
+  orchestration loop, using a stub `Retriever` and an in-memory corpus
+  of no more than 5 documents, with no network call and no model
+  loaded, verifying exactly one `build_index` call and one
+  `retrieve_all` call per retriever and that every cutoff's ranked
+  list is a prefix slice of the single deepest-cutoff list.
 
 Until every one of these holds, session-2 and session-3 items (see
 above) are refused, not just deferred. When refusing, state which

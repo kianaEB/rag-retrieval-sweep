@@ -18,8 +18,11 @@ Out of scope for this spec: `README.md`, `SPEC.md`, `ANALYSIS.md`,
 GitHub Actions CI, failure bucketing, the `BAAI/bge-small-en-v1.5`
 retriever, fixed-window and sentence-window chunking, hybrid
 retrieval, reranking, query expansion, and ANN indexes. pytest coverage
-in this spec is limited to the metric functions; the data-loading
-layer and the sweep runner are not tested in this spec.
+in this spec covers the metric functions (Requirement 11) and a
+call-counting test of the Sweep_Runner orchestration loop against a
+stub retriever and a small in-memory corpus (Requirement 12); the
+data-loading layer and end-to-end tests of the Sweep_Runner over the
+real corpus are not tested in this spec and remain session 2.
 
 ## Glossary
 
@@ -66,6 +69,17 @@ layer and the sweep runner are not tested in this spec.
   defined in terms of retriever and chunking strategy so the concept
   extends unchanged when additional chunking strategies are added in a
   later spec.
+- **Stub_Retriever**: A test-only implementation of the Retriever
+  protocol (Requirement 12) used solely to verify the Sweep_Runner's
+  orchestration behavior. It records, for later assertion, every call
+  made to it and the arguments of each call, but performs no real
+  indexing or retrieval computation, downloads no model, and makes no
+  network call.
+- **In_Memory_Test_Corpus**: A corpus of no more than 5 documents,
+  defined as Python literals within the test module for Requirement
+  12, used in place of the real BEIR SciFact corpus so the
+  orchestration test runs without loading data from `data/` or the
+  network.
 
 ## Requirements
 
@@ -524,10 +538,18 @@ dependency on the data-loading layer or the sweep runner.
    of 1e-6.
 3. THE test suite SHALL execute without making any network call and
    without downloading any dataset or model.
-4. THE test suite for this spec SHALL cover only the Metrics_Calculator
-   functions, SHALL NOT import or invoke any Corpus_Loader or
-   Sweep_Runner code, and SHALL defer Corpus_Loader tests and
-   Sweep_Runner end-to-end tests to a later spec.
+4. THE test suite covering the Metrics_Calculator functions (Criteria
+   1, 2, 3, and 5 of this requirement) SHALL cover only the
+   Metrics_Calculator functions, SHALL NOT import or invoke any
+   Corpus_Loader or Sweep_Runner code, and SHALL defer Corpus_Loader
+   tests and Sweep_Runner end-to-end tests over the real corpus to a
+   later spec. This requirement's scope limitation applies only to
+   the Metrics_Calculator test suite described in this requirement;
+   it does not narrow the distinct, stub-based Sweep_Runner
+   orchestration test required by Requirement 12, which is a
+   call-counting test over a stub retriever and an in-memory corpus,
+   not a Corpus_Loader test or an end-to-end test over the real
+   corpus.
 5. THE test suite SHALL additionally assert, for each of recall@k,
    nDCG@10, and MRR@10, that the value produced by the
    Metrics_Calculator function agrees with the value produced by
@@ -544,3 +566,69 @@ dependency on the data-loading layer or the sweep runner.
    dependency of `beir` (installed via the `pytrec-eval-terrier` PyPI
    package, which provides the `pytrec_eval` import), and SHALL be
    pinned to an exact version in `requirements.txt` per Requirement 9.
+
+### Requirement 12: Call-Counting Test of the Sweep_Runner Orchestration Loop
+
+**User Story:** As a maintainer, I want an automated test that proves
+the Sweep_Runner's orchestration loop calls each retriever's
+`build_index` and `retrieve_all` exactly once and derives every
+cutoff's Ranked_List by slicing the single Deepest_Cutoff Ranked_List,
+so that the "index once, retrieve once, slice four ways" property
+(Requirement 5) is verified by an automated test in this spec rather
+than resting on code review alone, without requiring the real BEIR
+corpus, a real model, or network access.
+
+#### Acceptance Criteria
+
+1. THE test suite SHALL include at least one Stub_Retriever that
+   implements the same Retriever protocol the Sweep_Runner uses for
+   `BM25_Retriever` and `Dense_Retriever` (Requirement 5.1), and that
+   records, for every call made to it, the name of the method called
+   (`build_index` or `retrieve_all`) and the arguments passed, in a
+   form the test can inspect after the run completes.
+2. THE Stub_Retriever SHALL perform no real index-building or
+   retrieval computation, SHALL NOT download or load any model, and
+   SHALL NOT make any network call; its `retrieve_all` method SHALL
+   return a deterministic, hand-specified Ranked_List for each query
+   from an in-memory literal, not a computed similarity or lexical
+   score.
+3. THE test suite SHALL exercise the Sweep_Runner's orchestration loop
+   using an In_Memory_Test_Corpus of no more than 5 documents, defined
+   as literals within the test module, and SHALL NOT load, download,
+   or reference the real BEIR SciFact corpus, queries, or qrels.
+4. WHEN the test suite runs the Sweep_Runner's orchestration loop over
+   the In_Memory_Test_Corpus with one or more Stub_Retriever instances
+   registered as the declared retrievers, THE test suite SHALL assert
+   that `build_index` was called exactly once and that `retrieve_all`
+   was called exactly once, for each Stub_Retriever, over the course
+   of the run.
+5. WHEN the test suite inspects the arguments recorded by a
+   Stub_Retriever's single `retrieve_all` call, THE test suite SHALL
+   assert that the call requested the Deepest_Cutoff declared for that
+   run, and SHALL NOT find a separate `retrieve_all` call recorded for
+   any other declared cutoff.
+6. WHEN the test suite computes, for each declared cutoff k, the
+   Ranked_List the Sweep_Runner actually used to score that cutoff for
+   a given query, THE test suite SHALL assert that this Ranked_List is
+   equal to the first k document IDs, in order, of the single
+   Ranked_List returned by that Stub_Retriever's single `retrieve_all`
+   call for that query — i.e., that it is a prefix slice of the single
+   deepest-cutoff list — for every declared cutoff and every query in
+   the In_Memory_Test_Corpus's query set.
+7. THE test suite for this requirement SHALL make no network call and
+   SHALL NOT load any sentence-transformers or other machine-learning
+   model.
+8. THE test suite for this requirement MAY import and invoke
+   `src.sweep_runner` orchestration code (or the orchestration
+   function/class it exposes) together with the Stub_Retriever and
+   In_Memory_Test_Corpus, and doing so SHALL NOT be treated as a
+   violation of Requirement 11.4's restriction, because Requirement
+   11.4 scopes only the Metrics_Calculator test suite described in
+   Requirement 11 and does not apply to this requirement's
+   orchestration test.
+9. THIS requirement's test SHALL NOT be treated as satisfying, or as a
+   substitute for, the Corpus_Loader tests or the Sweep_Runner
+   end-to-end tests over the real corpus that remain deferred to a
+   later spec (see Requirement 11.4 and the Introduction); it verifies
+   only the call-count and slicing behavior of the orchestration loop
+   against a stub and an in-memory corpus.

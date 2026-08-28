@@ -61,8 +61,13 @@ error that contaminates the metric being measured.
 ## Sessions
 1. Load SciFact + qrels; BM25 and one dense retriever; whole-document
    chunking only; recall@k / nDCG / MRR; results/sweep.csv; seeded;
-   requirements.txt; one entry point; pytest over the metric functions.
-   Config-driven grid from day one.
+   requirements.txt; one entry point; pytest over the metric functions;
+   plus a call-counting test of the Sweep_Runner orchestration loop —
+   using a stub retriever and a small in-memory corpus — verifying
+   exactly one build_index and one retrieve_all call per retriever and
+   that every cutoff's ranked list is a prefix slice of the single
+   deepest-cutoff list. Data-layer tests and end-to-end tests over the
+   real corpus remain session 2. Config-driven grid from day one.
 2. Full grid; failure bucketing; ANALYSIS.md; pytest over the data
    layer; GitHub Actions CI; README.md with the results table and the
    honest headline; SPEC.md with design and threats to validity.
