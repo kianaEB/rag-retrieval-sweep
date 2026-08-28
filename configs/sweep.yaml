@@ -1,0 +1,32 @@
+# Sweep_Config for session 1 (rag-retrieval-sweep).
+#
+# Declares, as data, the retriever x top-k x chunking-strategy grid
+# described in `docs/PROJECT_BRIEF.md` and
+# `.kiro/specs/session-1-baseline-sweep/design.md`. BM25 preprocessing
+# (tokenizer, stopwords, stemming, case-handling) is fixed here, once,
+# before any sweep result exists, and is never adjusted after seeing
+# results (see tech.md).
+
+seed: 42
+
+chunking_strategy: whole_document
+
+cutoffs: [1, 5, 10, 20]
+
+retrievers:
+  - name: bm25
+    type: bm25
+    k1: 1.5
+    b: 0.75
+    tokenizer: regex_word      # only supported value
+    lowercase: true
+    stopwords: none            # explicit "none": intentionally not applied
+    stemming: none             # explicit "none": intentionally not applied
+
+  - name: all-MiniLM-L6-v2
+    type: dense
+    model_name: sentence-transformers/all-MiniLM-L6-v2
+    batch_size: 32
+
+data_dir: data
+output_path: results/sweep.csv

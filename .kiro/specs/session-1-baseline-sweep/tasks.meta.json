@@ -22,6 +22,69 @@
         "chatSessionId": "sess_3b227626-b06e-48d4-bd36-2c1cb07df0dd",
         "timestamp": 1787911531579
       }
+    ],
+    "2. Write `src/errors.py`": [
+      {
+        "executionId": "b030ee42-6141-4d98-9e56-1e88ccff4f87",
+        "chatSessionId": "sess_882dacc7-249c-4319-8a30-837447603fb3",
+        "timestamp": 1787912767926
+      }
+    ],
+    "3. Write `configs/sweep.yaml` and `src/config.py`": [
+      {
+        "executionId": "d3662ed7-18c5-4070-90e3-11e9a3f92b1d",
+        "chatSessionId": "sess_022e28ce-78e2-4fc3-805c-a1e7ebe15ac2",
+        "timestamp": 1787912931387
+      }
+    ],
+    "10. Write `src/retrievers/bm25_retriever.py`": [
+      {
+        "executionId": "8789910b-5a21-49b7-bcaa-c879ce8c47a5",
+        "chatSessionId": "sess_4604e2df-937f-4de7-9f5c-ee73306378b0",
+        "timestamp": 1787922042214
+      }
+    ],
+    "11. Write `src/retrievers/dense_retriever.py`": [
+      {
+        "executionId": "8789910b-5a21-49b7-bcaa-c879ce8c47a5",
+        "chatSessionId": "sess_4604e2df-937f-4de7-9f5c-ee73306378b0",
+        "timestamp": 1787922042287
+      }
+    ],
+    "12. Write `src/report.py`": [
+      {
+        "executionId": "8789910b-5a21-49b7-bcaa-c879ce8c47a5",
+        "chatSessionId": "sess_4604e2df-937f-4de7-9f5c-ee73306378b0",
+        "timestamp": 1787922042367
+      }
+    ],
+    "13. Write `src/corpus_loader.py`": [
+      {
+        "executionId": "8789910b-5a21-49b7-bcaa-c879ce8c47a5",
+        "chatSessionId": "sess_4604e2df-937f-4de7-9f5c-ee73306378b0",
+        "timestamp": 1787922042490
+      }
+    ],
+    "14. Wire `main()` in `src/sweep_runner.py` and run it end to end": [
+      {
+        "executionId": "8789910b-5a21-49b7-bcaa-c879ce8c47a5",
+        "chatSessionId": "sess_4604e2df-937f-4de7-9f5c-ee73306378b0",
+        "timestamp": 1787922042590
+      }
+    ],
+    "15. Verify `results/sweep.csv` content against the schema": [
+      {
+        "executionId": "8789910b-5a21-49b7-bcaa-c879ce8c47a5",
+        "chatSessionId": "sess_4604e2df-937f-4de7-9f5c-ee73306378b0",
+        "timestamp": 1787922042665
+      }
+    ],
+    "16. Verify rerun-identity manually (Requirement 8.4)": [
+      {
+        "executionId": "8789910b-5a21-49b7-bcaa-c879ce8c47a5",
+        "chatSessionId": "sess_4604e2df-937f-4de7-9f5c-ee73306378b0",
+        "timestamp": 1787922042728
+      }
     ]
   }
 }

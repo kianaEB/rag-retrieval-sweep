@@ -1,0 +1,40 @@
+{
+  "seed": 42,
+  "sweep_config": {
+    "seed": 42,
+    "chunking_strategy": "whole_document",
+    "cutoffs": [
+      1,
+      5,
+      10,
+      20
+    ],
+    "retrievers": [
+      {
+        "name": "bm25",
+        "type": "bm25",
+        "k1": 1.5,
+        "b": 0.75,
+        "tokenizer": "regex_word",
+        "lowercase": true,
+        "stopwords": "none",
+        "stemming": "none"
+      },
+      {
+        "name": "all-MiniLM-L6-v2",
+        "type": "dense",
+        "model_name": "sentence-transformers/all-MiniLM-L6-v2",
+        "batch_size": 32
+      }
+    ],
+    "data_dir": "data",
+    "output_path": "results\\sweep.csv"
+  },
+  "installed_versions": {
+    "beir": "2.2.0",
+    "rank_bm25": "0.2.2",
+    "sentence-transformers": "6.0.0",
+    "torch": "2.13.0",
+    "numpy": "2.5.2"
+  }
+}

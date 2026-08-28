@@ -35,7 +35,7 @@ happens anywhere in the sequence.
     versions chosen in advance.
   - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5, 11.5_
 
-- [ ] 2. Write `src/errors.py`
+- [x] 2. Write `src/errors.py`
   - Define `ConfigError`, `UnsupportedPreprocessingError(ConfigError)`,
     `CorpusLoadError`, `CorpusValidationError`, `SeedApplicationError`,
     `ModelLoadError`, `RetrievalError`, `MetricComputationError`,
@@ -45,7 +45,7 @@ happens anywhere in the sequence.
     prints `ok` with exit code 0.
   - _Requirements: 1.4, 1.5, 1.6, 1.8, 2.6, 3.7, 4.7, 6.1, 6.2, 6.3, 8.5, 10.4_
 
-- [ ] 3. Write `configs/sweep.yaml` and `src/config.py`
+- [x] 3. Write `configs/sweep.yaml` and `src/config.py`
   - Implement `BM25RetrieverConfig`, `DenseRetrieverConfig`, `SweepConfig`,
     and `load_sweep_config(path)` with the validation described in the
     design (exactly 2 retrievers, cutoffs == {1,5,10,20}, chunking ==
@@ -61,7 +61,7 @@ happens anywhere in the sequence.
     prints `ok` and exits 0.
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 3.7, 8.1_
 
-- [ ] 4. Write `src/seeding.py`
+- [x] 4. Write `src/seeding.py`
   - Implement `apply_seed(seed: int) -> None`, seeding `random`, `numpy`,
     and `torch` in that order, wrapping any failure in
     `SeedApplicationError`.
@@ -71,7 +71,7 @@ happens anywhere in the sequence.
     exactly equal. Prints `ok` and exits 0.
   - _Requirements: 8.2, 8.5_
 
-- [ ] 5. Write `src/metrics.py`
+- [x] 5. Write `src/metrics.py`
   - Implement `judged_relevant_docs`, `recall_at_k`, `ndcg_at_10`,
     `mrr_at_10`, `mean_over_qualifying_queries`, `scored_query_count`
     exactly per the formulas in `design.md`.
@@ -82,7 +82,7 @@ happens anywhere in the sequence.
     exception. Prints `ok` and exits 0. No network call.
   - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7_
 
-- [ ] 6. Write `tests/test_metrics.py`
+- [x] 6. Write `tests/test_metrics.py`
   - Cover, for each of `recall_at_k`, `ndcg_at_10`, `mrr_at_10`: no
     judged-relevant document, a relevant doc outside the top-k cutoff,
     perfect ranking, and empty ranked list — fixtures ≤10 docs, floats
@@ -97,7 +97,7 @@ happens anywhere in the sequence.
     returning no matches).
   - _Requirements: 11.1, 11.2, 11.3, 11.4, 11.5_
 
-- [ ] 7. Write `src/retrievers/base.py`
+- [x] 7. Write `src/retrievers/base.py`
   - Define the `Retriever` `Protocol` (`name`, `build_index`,
     `retrieve_all`), the `RetrievalRun` dataclass, and the shared
     `doc_id_sort_key(doc_id: str)` helper used by both retrievers for the
@@ -107,7 +107,7 @@ happens anywhere in the sequence.
     prints `ok` and exits 0.
   - _Requirements: 3.4, 4.8, 5.1_
 
-- [ ] 8. Write the `run_sweep` orchestration seam in `src/sweep_runner.py`
+- [x] 8. Write the `run_sweep` orchestration seam in `src/sweep_runner.py`
   - Implement `run_sweep(config, bundle, retriever_factory)`: exactly one
     `build_index` + one `retrieve_all` per declared retriever at
     `deepest_cutoff = max(config.cutoffs)`, `ndcg_at_10`/`mrr_at_10`
@@ -125,7 +125,7 @@ happens anywhere in the sequence.
     network call, no real retriever imported.
   - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 6.6, 6.7, 7.3, 7.4, 7.7_
 
-- [ ] 9. Write `tests/test_orchestration.py`
+- [x] 9. Write `tests/test_orchestration.py`
   - Implement `StubRetriever` (records every `build_index`/`retrieve_all`
     call and its arguments; returns a hand-specified ranked list per
     query; no real computation) and a ≤5-document `In_Memory_Test_Corpus`,
@@ -140,7 +140,7 @@ happens anywhere in the sequence.
     `1 passed`.
   - _Requirements: 12.1, 12.2, 12.3, 12.4, 12.5, 12.6, 12.7, 12.8, 12.9_
 
-- [ ] 10. Write `src/retrievers/bm25_retriever.py`
+- [x] 10. Write `src/retrievers/bm25_retriever.py`
   - Implement `BM25Retriever`: shared `_tokenize` (regex word split +
     optional lowercase, applied identically to docs and queries), one
     `BM25Okapi` build in `build_index` (timed), `retrieve_all` ranking by
@@ -155,7 +155,7 @@ happens anywhere in the sequence.
     network call.
   - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7_
 
-- [ ] 11. Write `src/retrievers/dense_retriever.py`
+- [x] 11. Write `src/retrievers/dense_retriever.py`
   - Implement `DenseRetriever`: loads `all-MiniLM-L6-v2` on
     `device="cpu"` with `cache_folder` under `data/`, asserts
     `huggingface_hub`'s resolved cache matches that folder (raising
@@ -173,7 +173,7 @@ happens anywhere in the sequence.
     network** (one-time `all-MiniLM-L6-v2` weight download to `data/`).
   - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 4.8, 10.5, 10.6, 10.7_
 
-- [ ] 12. Write `src/report.py`
+- [x] 12. Write `src/report.py`
   - Implement `SweepReportRow`, the `MISSING = "NA"` sentinel,
     `write_sweep_report` (atomic temp-file-then-`os.replace` write), and
     `write_run_config_record` (seed, resolved `SweepConfig`, and
@@ -190,7 +190,7 @@ happens anywhere in the sequence.
     `ok` and exits 0.
   - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 7.6, 7.7, 7.8, 8.3_
 
-- [ ] 13. Write `src/corpus_loader.py`
+- [x] 13. Write `src/corpus_loader.py`
   - Implement `configure_caches(data_dir)` (sets `HF_HOME`/`HF_HUB_CACHE`
     before any `huggingface_hub`-importing module loads) and
     `load_scifact(data_dir)`: downloads/loads BEIR SciFact, raises on
@@ -205,7 +205,7 @@ happens anywhere in the sequence.
     download to `data/`).
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 10.5_
 
-- [ ] 14. Wire `main()` in `src/sweep_runner.py` and run it end to end
+- [x] 14. Wire `main()` in `src/sweep_runner.py` and run it end to end
   - Implement the CLI entry point: parse `--config` (default
     `configs/sweep.yaml`) → `configure_caches` → `apply_seed` → write
     `results/run_config.json` → `load_scifact` → `run_sweep` with
@@ -217,7 +217,7 @@ happens anywhere in the sequence.
     `results/run_config.json` both exist on disk afterward.
   - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.5, 10.6, 10.7, 8.3, 8.5_
 
-- [ ] 15. Verify `results/sweep.csv` content against the schema
+- [x] 15. Verify `results/sweep.csv` content against the schema
   - Done check: a script that loads `results/sweep.csv` with `pandas`
     and asserts: exactly 8 rows; columns are exactly `run_id, retriever,
     chunking_strategy, k, recall_at_k, ndcg_at_10, mrr_at_10, index_time,
@@ -228,7 +228,7 @@ happens anywhere in the sequence.
     its 4 rows; no cell equals the string `"NA"`. Prints `ok` and exits 0.
   - _Requirements: 1.2, 7.1, 7.2, 7.3, 7.4, 7.5, 7.6, 7.7_
 
-- [ ] 16. Verify rerun-identity manually (Requirement 8.4)
+- [x] 16. Verify rerun-identity manually (Requirement 8.4)
   - Done check: run
     `python -m src.sweep_runner --config configs/sweep.yaml` a second
     time to a second output path (e.g. `results/sweep_rerun.csv`, via a
