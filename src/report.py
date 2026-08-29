@@ -7,10 +7,18 @@ config writers (Requirement 7, Requirement 8.3).
 atomically (temp file + `os.replace`), and `write_run_config_record`
 writes the accompanying run configuration record (e.g.
 `results/run_config.json`) -- the fixed seed, the fully resolved
-`SweepConfig`, and the installed version of each of `beir`,
-`rank_bm25`, `sentence-transformers`, `torch`, and `numpy`, read via
+`SweepConfig`, the `CorpusLoadReport` counts (`num_documents`,
+`num_queries`, `num_qrel_pairs`) derived from the same corpus load that
+fed the run, and the installed version of each of `beir`, `rank_bm25`,
+`sentence-transformers`, `torch`, and `numpy`, read via
 `importlib.metadata.version(...)` at run time -- per `design.md`'s
-`src/report.py` section.
+`src/report.py` section. Every `pathlib.Path` value in the record
+(currently `sweep_config.data_dir` and `sweep_config.output_path`) is
+rendered in POSIX form (forward slashes) rather than the host
+platform's native separator, so the record is byte-for-byte portable
+across machines regardless of which OS produced it -- the
+reproducibility bar (tech.md) applies to the record describing the
+run, not only to the metric columns it lets a reader cross-check.
 """
 
 from __future__ import annotations
@@ -26,6 +34,7 @@ from typing import List, Tuple, Union
 import pandas
 
 from src.config import SweepConfig
+from src.corpus_loader import CorpusLoadReport
 from src.errors import ReportWriteError
 
 # Sentinel written for any metric/timing value that could not be
@@ -134,18 +143,54 @@ def write_sweep_report(rows: List[SweepReportRow], output_path: Path) -> None:
     _atomic_write_text(output_path, csv_text, failure_context="sweep report")
 
 
-def write_run_config_record(config: SweepConfig, output_path: Path) -> None:
+def _json_default(value: object) -> str:
+    """`default=` handler for the `json.dumps` call in
+    `write_run_config_record`.
+
+    Renders any `pathlib.Path` value via `Path.as_posix()` (forward
+    slashes) instead of `str(value)`'s host-platform-native separator
+    -- e.g. `Path("results/sweep.csv")` always serializes as
+    `"results/sweep.csv"`, never `"results\\sweep.csv"` on Windows --
+    so the written run config record is textually identical for a
+    given logical path regardless of which OS produced it (the
+    reproducibility record must be portable across machines, not just
+    the metric values it accompanies). Any other value reaching this
+    handler (i.e. anything `json` cannot serialize natively) falls
+    back to `str(value)`, matching this module's previous behavior for
+    non-`Path` values.
+    """
+    if isinstance(value, Path):
+        return value.as_posix()
+    return str(value)
+
+
+def write_run_config_record(
+    config: SweepConfig,
+    corpus_report: CorpusLoadReport,
+    output_path: Path,
+) -> None:
     """Writes the Requirement 8.3 run configuration record to
     `output_path` (e.g. `results/run_config.json`), atomically.
 
-    The record has exactly three top-level keys: `seed` (the fixed
+    The record has exactly four top-level keys: `seed` (the fixed
     random seed applied for the run), `sweep_config` (the fully
     resolved `SweepConfig` contents, as loaded and validated by
-    `load_sweep_config`), and `installed_versions` (the installed
-    version of each of `beir`, `rank_bm25`, `sentence-transformers`,
-    `torch`, and `numpy`, read via `importlib.metadata.version(...)` at
-    run time -- never hard-coded). Used, alongside `results/sweep.csv`,
-    for the manual rerun-identity diff described in Requirement 8.4.
+    `load_sweep_config`), `corpus_load_report` (the `num_documents`,
+    `num_queries`, and `num_qrel_pairs` counts from the
+    `CorpusLoadReport` that `load_scifact` returned for *this* run's
+    corpus load -- the same counts `report.as_log_line()` prints to
+    stdout, now also living in a committed artifact instead of only
+    transient stdout), and `installed_versions` (the installed version
+    of each of `beir`, `rank_bm25`, `sentence-transformers`, `torch`,
+    and `numpy`, read via `importlib.metadata.version(...)` at run time
+    -- never hard-coded). Used, alongside `results/sweep.csv`, for the
+    manual rerun-identity diff described in Requirement 8.4.
+
+    Every `pathlib.Path` value nested in the record (currently
+    `sweep_config.data_dir` and `sweep_config.output_path`) is written
+    via `_json_default` in POSIX form (forward slashes), never the
+    host platform's native separator, so the record is portable across
+    machines.
 
     Raises `ReportWriteError` if building or writing the record fails
     for any reason. `output_path` is left untouched rather than
@@ -156,12 +201,13 @@ def write_run_config_record(config: SweepConfig, output_path: Path) -> None:
         record = {
             "seed": config.seed,
             "sweep_config": dataclasses.asdict(config),
+            "corpus_load_report": dataclasses.asdict(corpus_report),
             "installed_versions": {
                 package: importlib.metadata.version(package)
                 for package in _VERSION_TRACKED_PACKAGES
             },
         }
-        json_text = json.dumps(record, indent=2, default=str)
+        json_text = json.dumps(record, indent=2, default=_json_default)
     except Exception as exc:
         raise ReportWriteError(
             f"failed to build run config record for {output_path}: {exc}"

@@ -28,7 +28,12 @@
       }
     ],
     "data_dir": "data",
-    "output_path": "results\\sweep.csv"
+    "output_path": "results/sweep.csv"
+  },
+  "corpus_load_report": {
+    "num_documents": 5183,
+    "num_queries": 300,
+    "num_qrel_pairs": 339
   },
   "installed_versions": {
     "beir": "2.2.0",

@@ -12,12 +12,14 @@ network access anywhere on the call path.
 
 `main()` (Task 14) is the CLI entry point that wires everything else
 around that seam: config parsing, `configure_caches`, `apply_seed`,
-writing `results/run_config.json`, `load_scifact`, and finally
-`run_sweep` itself, driven by `make_default_retriever_factory` (which
-builds real `BM25Retriever`/`DenseRetriever` instances -- the only
-place in production code that constructs either). `main()` never
-constructs a retriever directly either; it only ever passes a factory
-into `run_sweep`.
+`load_scifact`, writing `results/run_config.json` (which embeds the
+`CorpusLoadReport` counts `load_scifact` just returned, so the record
+requires a successful corpus load to exist), and finally `run_sweep`
+itself, driven by `make_default_retriever_factory` (which builds real
+`BM25Retriever`/`DenseRetriever` instances -- the only place in
+production code that constructs either). `main()` never constructs a
+retriever directly either; it only ever passes a factory into
+`run_sweep`.
 
 This module's own top-level imports are limited to `src.config`,
 `src.corpus_loader`, `src.errors`, `src.metrics`, `src.report`,
@@ -323,13 +325,20 @@ def main(argv: Optional[List[str]] = None) -> int:
        imports `huggingface_hub` (transitively) is imported anywhere
        in this process (Requirement 10.5).
     3. `apply_seed(config.seed)`. On `SeedApplicationError`: print the
-       error, return non-zero, write nothing (Requirement 8.5). Then
-       write `results/run_config.json` (alongside `config.output_path`)
-       via `write_run_config_record` (Requirement 8.3).
+       error, return non-zero, write nothing (Requirement 8.5).
     4. `load_scifact(config.data_dir)`. On `CorpusLoadError` /
        `CorpusValidationError`: print the error, return non-zero, write
        nothing (Requirement 1.4, 1.5, 1.6, 1.8). On success, print
-       `report.as_log_line()` (Requirement 1.2).
+       `report.as_log_line()` (Requirement 1.2), then write
+       `results/run_config.json` (alongside `config.output_path`) via
+       `write_run_config_record(config, load_report, run_config_path)`
+       -- embedding this run's actual `CorpusLoadReport` counts
+       (`num_documents`, `num_queries`, `num_qrel_pairs`) in the record
+       alongside the seed, the resolved config, and installed package
+       versions (Requirement 8.3), so the dataset statistics a reader
+       needs to cite live in a committed artifact rather than only in
+       transient stdout. On `ReportWriteError`: print the error,
+       return non-zero (Requirement 10.4).
     5-7. `run_sweep(config, bundle, retriever_factory=
        make_default_retriever_factory(config.data_dir / "hf_cache"))`.
        On `ZeroQualifyingQueriesError`: print the error, return
@@ -363,19 +372,19 @@ def main(argv: Optional[List[str]] = None) -> int:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
 
-    run_config_path = config.output_path.parent / "run_config.json"
-    try:
-        write_run_config_record(config, run_config_path)
-    except ReportWriteError as exc:
-        print(f"ERROR: {exc}", file=sys.stderr)
-        return 1
-
     try:
         bundle, load_report = load_scifact(config.data_dir)
     except (CorpusLoadError, CorpusValidationError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
     print(load_report.as_log_line())
+
+    run_config_path = config.output_path.parent / "run_config.json"
+    try:
+        write_run_config_record(config, load_report, run_config_path)
+    except ReportWriteError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
 
     retriever_factory = make_default_retriever_factory(config.data_dir / "hf_cache")
     try:
