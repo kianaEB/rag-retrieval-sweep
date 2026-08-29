@@ -39,9 +39,14 @@ not a matter of judgment.
   threats to validity, along with what the headline would have been
   under the original choice.
 
-- **A dense loss is a headline, not a footnote.** If dense retrieval
-  loses to BM25 on nDCG@10, `README.md` says so in its first paragraph
-  — not buried in a table, not qualified away in a later section.
+- **The nDCG@10 comparison is the headline, whichever way it falls.**
+  `README.md`'s first paragraph states the nDCG@10 comparison against
+  BM25 together with whether the difference is distinguishable from
+  noise, as determined by the pre-declared paired bootstrap. A
+  difference that is not statistically significant is reported as
+  "indistinguishable", never as a win for either side. A dense loss is
+  never buried in a table or qualified away in a later section; neither
+  is a dense win, and neither is a tie.
 
 - **No row gets dropped for being unflattering.** Never drop, exclude,
   or filter a run from `results/sweep.csv` because its numbers are

@@ -68,9 +68,11 @@ error that contaminates the metric being measured.
    that every cutoff's ranked list is a prefix slice of the single
    deepest-cutoff list. Data-layer tests and end-to-end tests over the
    real corpus remain session 2. Config-driven grid from day one.
-2. Full grid; failure bucketing; ANALYSIS.md; pytest over the data
-   layer; GitHub Actions CI; README.md with the results table and the
-   honest headline; SPEC.md with design and threats to validity.
+2. Per-query metric values persisted as an artifact; paired significance
+   testing of each retriever against the BM25 reference; full grid;
+   failure bucketing; ANALYSIS.md; pytest over the data layer; GitHub
+   Actions CI; README.md with the results table and the honest headline;
+   SPEC.md with design and threats to validity.
 3. Stretch: groundedness gate over generated answers, quarantine rate,
    hand-checked sample.
 
