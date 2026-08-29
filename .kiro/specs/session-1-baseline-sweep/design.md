@@ -635,14 +635,7 @@ Orchestration, in order:
    transitively by both) reads `HF_HOME`/`HF_HUB_CACHE` from the
    environment only after this function has set them.
 3. `apply_seed(config.seed)` — on `SeedApplicationError`, print the
-   error, return non-zero, write nothing (Requirement 8.5). Write
-   `results/run_config.json` capturing the fixed seed, the fully
-   resolved `Sweep_Config` contents (as loaded and validated by
-   `load_sweep_config`), and the installed version of each of `beir`,
-   `rank_bm25`, `sentence-transformers`, `torch`, and `numpy` — read
-   via `importlib.metadata.version(...)` at run time, never
-   hard-coded — as the single accompanying run configuration record
-   (Requirement 8.3).
+   error, return non-zero, write nothing (Requirement 8.5).
 4. `bundle, report = load_scifact(config.data_dir)` (deferred import,
    per step 2) — on `CorpusLoadError` / `CorpusValidationError`, print
    the error, return non-zero, write nothing (Requirement 1.4, 1.5,
@@ -650,7 +643,22 @@ Orchestration, in order:
    cases covered by this same halt path, per the reversed Requirement
    1.8). Print `report.as_log_line()` (Requirement 1.2) — reaching
    this line means the report was successfully produced, since
-   `load_scifact` never returns without one.
+   `load_scifact` never returns without one. Then write
+   `results/run_config.json` via `write_run_config_record(config,
+   report, run_config_path)`, capturing exactly four top-level keys:
+   the fixed seed; the fully resolved `Sweep_Config` contents (as
+   loaded and validated by `load_sweep_config`); `corpus_load_report`
+   — this same step's `report` (the `CorpusLoadReport` `load_scifact`
+   just returned), so the record can only be written once a real
+   corpus load has succeeded and its counts can never drift from the
+   `CORPUS_LOAD_REPORT ...` stdout line printed one line above; and
+   `installed_versions`, the installed version of each of `beir`,
+   `rank_bm25`, `sentence-transformers`, `torch`, and `numpy` — read
+   via `importlib.metadata.version(...)` at run time, never
+   hard-coded (Requirement 8.3). Writing this record after the corpus
+   load (rather than right after `apply_seed`, in step 3) is what
+   makes `corpus_load_report` available to include at all — on
+   `ReportWriteError`, print the error and return non-zero.
 
 **The injection seam (Requirement 12).** Steps 5-7 below are
 implemented in a separate function, `run_sweep`, factored out of
@@ -823,7 +831,11 @@ class SweepReportRow:
     num_queries_scored: int         # queries with >=1 judged-relevant doc; never MISSING
 
 def write_sweep_report(rows: List[SweepReportRow], output_path: Path) -> None: ...
-def write_run_config_record(config: SweepConfig, output_path: Path) -> None: ...
+def write_run_config_record(
+    config: SweepConfig,
+    corpus_report: CorpusLoadReport,
+    output_path: Path,
+) -> None: ...
 ```
 
 `write_sweep_report` builds a `pandas.DataFrame` from `rows` in
@@ -833,6 +845,27 @@ directory (`output_path.with_suffix(".csv.tmp")`), then
 the temp file is removed and `ReportWriteError` is raised — this is
 what guarantees `results/sweep.csv` is never left partially written or
 corrupted (Requirement 10.4).
+
+`write_run_config_record` writes exactly four top-level keys: `seed`;
+`sweep_config` (the fully resolved `Sweep_Config`, via
+`dataclasses.asdict(config)`); `corpus_load_report` (the
+`num_documents`/`num_queries`/`num_qrel_pairs` counts, via
+`dataclasses.asdict(corpus_report)` — the caller passes in the same
+`CorpusLoadReport` that `load_scifact` returned for this run's corpus
+load, so this function never re-derives or re-loads anything); and
+`installed_versions`. Every `pathlib.Path` value nested anywhere in
+the record (currently `sweep_config.data_dir` and
+`sweep_config.output_path`) is serialized through a `json.dumps(...,
+default=...)` handler that calls `Path.as_posix()` rather than relying
+on `str()`, so a path is always written with forward slashes (e.g.
+`"results/sweep.csv"`) regardless of the host OS's native separator —
+plain `str()` would emit backslash-separated paths on Windows, making
+the record byte-for-byte different across operating systems for an
+otherwise-identical config. This keeps `results/run_config.json`
+itself diffable across machines, the same reproducibility bar
+`tech.md` sets for the metric columns. Uses the same atomic
+temp-file-plus-`os.replace` approach as `write_sweep_report` and
+raises `ReportWriteError` on failure, leaving `output_path` untouched.
 
 ## Data Models
 
@@ -909,6 +942,20 @@ retrievers fail entirely.
 
 ### `results/run_config.json` (Requirement 8.3 record)
 
+The record has exactly four top-level keys: `seed`, `sweep_config`,
+`corpus_load_report`, and `installed_versions`. `corpus_load_report`
+carries the same three counts (`num_documents`, `num_queries`,
+`num_qrel_pairs`) that `report.as_log_line()` prints to stdout during
+the run (Requirement 1.2/1.3) — recording them here as well means the
+dataset statistics a reader would cite in `README.md`/`SPEC.md`/
+`ANALYSIS.md` (per the evaluation-integrity steering's "dataset stats
+come from the loader's own output" rule) live in a committed artifact,
+not only in a transient stdout line that disappears once the terminal
+scrolls. Every `pathlib.Path` value (here, `sweep_config.data_dir` and
+`sweep_config.output_path`) serializes in POSIX form (forward
+slashes), regardless of the host OS, so the file is portable
+byte-for-byte across machines:
+
 ```json
 {
   "seed": 42,
@@ -923,6 +970,11 @@ retrievers fail entirely.
     "data_dir": "data",
     "output_path": "results/sweep.csv"
   },
+  "corpus_load_report": {
+    "num_documents": 5183,
+    "num_queries": 300,
+    "num_qrel_pairs": 339
+  },
   "installed_versions": {
     "beir": "2.2.0",
     "rank_bm25": "0.2.2",
@@ -933,6 +985,17 @@ retrievers fail entirely.
 }
 ```
 
+Note `data_dir` and `output_path` above are always rendered with `/`
+(POSIX form) — e.g. still `"results/sweep.csv"`, never
+`"results\\sweep.csv"`, even when the run producing the file happens
+on Windows — so a rerun's `run_config.json` is directly comparable
+across machines with different native path separators, per the
+Requirement 8.4 diff described next.
+
+`corpus_load_report` values are `dataclasses.asdict(...)` of the exact
+`CorpusLoadReport` that `load_scifact` returned for this run — never
+re-derived or independently recomputed — so this block and the
+`CORPUS_LOAD_REPORT ...` stdout line always agree (Requirement 1.3).
 `installed_versions` values are read via
 `importlib.metadata.version(...)` at run time — the values above are
 illustrative only, never hard-coded (Requirement 8.3). Written once
