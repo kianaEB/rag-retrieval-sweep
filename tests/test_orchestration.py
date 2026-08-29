@@ -185,7 +185,7 @@ def test_run_sweep_orchestration_call_counts_and_prefix_slicing(monkeypatch):
 
     monkeypatch.setattr(sweep_runner_module, "recall_at_k", spy_recall_at_k)
 
-    rows, all_succeeded = run_sweep(config, BUNDLE, retriever_factory)
+    rows, per_query_rows, all_succeeded = run_sweep(config, BUNDLE, retriever_factory)
 
     # -- Row count and overall success (Requirement 7.1, 7.2) --------------
     assert all_succeeded is True

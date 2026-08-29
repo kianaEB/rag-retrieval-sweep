@@ -41,5 +41,11 @@
     "sentence-transformers": "6.0.0",
     "torch": "2.13.0",
     "numpy": "2.5.2"
+  },
+  "significance": {
+    "bootstrap_seed": 20240,
+    "resample_count": 10000,
+    "permutation_count": 10000,
+    "alpha": 0.05
   }
 }

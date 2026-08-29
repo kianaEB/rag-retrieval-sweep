@@ -23,7 +23,7 @@ shell or Python one-liners.
 
 ## Tasks
 
-- [ ] 1. Extend `src/errors.py` with the significance exception types
+- [x] 1. Extend `src/errors.py` with the significance exception types
   - Add, alongside session 1's existing types: `PerQueryReportError`
     (top-level `Exception`), `BootstrapConfigError(ConfigError)`,
     `SignificanceInputError`, `MissingReferenceRunError`,
@@ -35,7 +35,7 @@ shell or Python one-liners.
     prints `ok` with exit code 0.
   - _Requirements: 1.8, 2.4, 2.5, 2.7, 4.5, 4.6_
 
-- [ ] 2. Write the three pure functions `paired_bootstrap`, `permutation_test`, and `holm_bonferroni` in `src/significance.py`
+- [x] 2. Write the three pure functions `paired_bootstrap`, `permutation_test`, and `holm_bonferroni` in `src/significance.py`
   - Implement `paired_bootstrap(a, b, resample_count, generator)`:
     compute `d = a - b` once; draw one
     `generator.integers(0, n, size=(resample_count, n))` index matrix;
@@ -84,7 +84,7 @@ shell or Python one-liners.
     exits 0.
   - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 5.3, 5.4, 5.5, 5.6_
 
-- [ ] 3. Write `tests/test_significance.py` (Requirement 7 — the entire automated-test surface)
+- [x] 3. Write `tests/test_significance.py` (Requirement 7 — the entire automated-test surface)
   - Implement the five bootstrap/permutation assertions from the
     design's Testing Strategy, each constructing its `generator` locally
     via `np.random.default_rng(<fixed seed>)`: self-comparison mean
@@ -114,7 +114,7 @@ shell or Python one-liners.
     7.9, 7.10). This must be green before Task 7 wires the entry point.
   - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 7.6, 7.7, 7.8, 7.9, 7.10, 7.11_
 
-- [ ] 4. Write `configs/significance.yaml` and `src/significance_config.py`
+- [x] 4. Write `configs/significance.yaml` and `src/significance_config.py`
   - Implement the frozen `SignificanceConfig` dataclass
     (`resample_count`, `permutation_count`, `bootstrap_seed`, `alpha`,
     `reference_retriever`, `per_query_path`, `output_path`,
@@ -146,7 +146,7 @@ shell or Python one-liners.
     Prints `ok` and exits 0.
   - _Requirements: 4.1, 4.2, 4.5, 4.7, 6.4_
 
-- [ ] 5. Write `src/per_query_report.py` (the Per_Query_Report writer)
+- [x] 5. Write `src/per_query_report.py` (the Per_Query_Report writer)
   - Implement the frozen `PerQueryReportRow` dataclass with the 11
     columns from Requirement 1.3 in fixed order (`run_id`, `retriever`,
     `chunking_strategy`, `query_id`, `recall_at_1`, `recall_at_5`,
@@ -166,7 +166,7 @@ shell or Python one-liners.
     integer. Prints `ok` and exits 0. No network call.
   - _Requirements: 1.3, 1.4, 1.5, 1.6, 1.8_
 
-- [ ] 6. Extend `src/sweep_runner.py` to emit `results/per_query.csv` in the same run
+- [x] 6. Extend `src/sweep_runner.py` to emit `results/per_query.csv` in the same run
   - Capture the per-query `recall`/`ndcg`/`mrr` dictionaries `run_sweep`
     already computes on its way to each mean — no new retriever call, no
     recomputation from the corpus — and assemble one `PerQueryReportRow`
@@ -192,7 +192,7 @@ shell or Python one-liners.
     manual-verification stance.
   - _Requirements: 1.1, 1.2, 1.5, 1.7, 1.8_
 
-- [ ] 7. Wire the `Significance_Analyzer` `main()` in `src/significance.py`
+- [x] 7. Wire the `Significance_Analyzer` `main()` in `src/significance.py`
   - Implement the CLI entry point (`python -m src.significance
     [--config PATH]`, default `configs/significance.yaml`) with the
     design's 9-step orchestration: (1) load config via

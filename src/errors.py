@@ -55,3 +55,45 @@ class ZeroQualifyingQueriesError(Exception):
 
 class ReportWriteError(Exception):
     """results/sweep.csv could not be written."""
+
+
+# --- significance-testing spec: extends the session-1 hierarchy above ---
+
+
+class PerQueryReportError(Exception):
+    """results/per_query.csv could not be written by the Sweep_Runner.
+    The sweep-side analogue of ReportWriteError: a halt condition for
+    the sweep run (Requirement 1.8), never a per-cell recovery."""
+
+
+class BootstrapConfigError(ConfigError):
+    """Bootstrap_Config (configs/significance.yaml) missing, unparsable,
+    or declaring a missing / non-integer resample_count,
+    permutation_count, or bootstrap_seed, or an invalid alpha /
+    reference retriever / path (Requirement 4.5). A ConfigError subclass
+    so the Significance_Analyzer's config-failure contract matches
+    load_sweep_config's."""
+
+
+class SignificanceInputError(Exception):
+    """results/per_query.csv is missing, cannot be parsed, or lacks a
+    column required by Requirement 1.3 (Requirement 2.4). Halts the
+    analyzer before it writes results/significance.csv."""
+
+
+class MissingReferenceRunError(Exception):
+    """The Per_Query_Report contains no run identified as the BM25
+    Reference_Run (Requirement 2.5). Every comparison is defined
+    relative to the Reference_Run, so the analyzer halts."""
+
+
+class RunConfigMergeError(Exception):
+    """results/run_config.json is absent, unparsable, or could not be
+    re-written after merging the 'significance' sub-object (Requirement
+    4.6). The analyzer halts rather than creating a fresh record that
+    would lack the Sweep_Runner's own keys."""
+
+
+class SignificanceWriteError(Exception):
+    """results/significance.csv could not be written (Requirement 2.7).
+    The analyzer's analogue of ReportWriteError."""

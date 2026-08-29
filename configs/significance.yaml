@@ -1,0 +1,27 @@
+# Bootstrap_Config for the significance-testing spec (rag-retrieval-sweep).
+#
+# Declares, as data, the paired-bootstrap resample count, the paired
+# permutation-test iteration count, and the Bootstrap_Seed applied to
+# both -- kept in a file separate from `configs/sweep.yaml` so the
+# Significance_Analyzer never needs to parse or validate a retriever
+# grid it doesn't use, and so the two seeds (this file's
+# `bootstrap_seed` and `sweep.yaml`'s `seed`) can never be conflated or
+# accidentally cross-referenced. `alpha` is the significance threshold,
+# fixed in advance at 0.05 (see evaluation-integrity.md) and never
+# revised after seeing results.
+
+resample_count: 10000
+
+permutation_count: 10000
+
+bootstrap_seed: 20240      # distinct from configs/sweep.yaml's seed: 42
+
+alpha: 0.05
+
+reference_retriever: bm25
+
+per_query_path: results/per_query.csv
+
+output_path: results/significance.csv
+
+run_config_path: results/run_config.json

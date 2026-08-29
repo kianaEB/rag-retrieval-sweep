@@ -56,6 +56,7 @@ from typing import Callable, Dict, List, Optional, Tuple, Union
 from src.config import (
     BM25RetrieverConfig,
     DenseRetrieverConfig,
+    SUPPORTED_CUTOFFS,
     SweepConfig,
     load_sweep_config,
 )
@@ -64,17 +65,20 @@ from src.errors import (
     ConfigError,
     CorpusLoadError,
     CorpusValidationError,
+    PerQueryReportError,
     ReportWriteError,
     SeedApplicationError,
     ZeroQualifyingQueriesError,
 )
 from src.metrics import (
+    judged_relevant_docs,
     mean_over_qualifying_queries,
     mrr_at_10,
     ndcg_at_10,
     recall_at_k,
     scored_query_count,
 )
+from src.per_query_report import PerQueryReportRow, write_per_query_report
 from src.report import MISSING, SweepReportRow, write_run_config_record, write_sweep_report
 from src.retrievers.base import Retriever
 from src.seeding import apply_seed
@@ -91,12 +95,11 @@ RetrieverFactory = Callable[[RetrieverConfig], Retriever]
 # is not passed on the command line.
 DEFAULT_CONFIG_PATH = Path("configs/sweep.yaml")
 
-
 def run_sweep(
     config: SweepConfig,
     bundle: CorpusBundle,
     retriever_factory: RetrieverFactory,
-) -> Tuple[List[SweepReportRow], bool]:
+) -> Tuple[List[SweepReportRow], List[PerQueryReportRow], bool]:
     """Runs the retriever loop, metric computation, and row assembly.
 
     For each retriever declared in `config.retrievers`, this calls
@@ -129,12 +132,36 @@ def run_sweep(
     `recall_at_k` for one cutoff marks only that row's `recall_at_k`
     cell `MISSING` without affecting the other cutoffs.
 
-    Returns `(rows, all_succeeded)`: `rows` always has exactly
-    `len(config.retrievers) * len(config.cutoffs)` entries, regardless
-    of any individual failure (Requirement 7.1, 7.2); `all_succeeded`
-    is `True` iff no row carries a `MISSING` marker in any column.
+    Returns `(rows, per_query_rows, all_succeeded)`: `rows` always has
+    exactly `len(config.retrievers) * len(config.cutoffs)` entries,
+    regardless of any individual failure (Requirement 7.1, 7.2);
+    `all_succeeded` is `True` iff no row carries a `MISSING` marker in
+    any column.
+
+    `per_query_rows` (significance-testing spec, Requirement 1) is
+    built from the exact same `per_query_ndcg`/`per_query_mrr`/
+    per-cutoff `per_query_recall` dictionaries this function already
+    computes on its way to each `SweepReportRow`'s mean -- no new
+    retriever call, no recomputation from the corpus. One
+    `PerQueryReportRow` is appended per (run_id, query_id), wide on
+    cutoff, for every retriever whose index build, retrieval, and every
+    one of `ndcg_at_10`/`mrr_at_10`/`recall_at_1`/`recall_at_5`/
+    `recall_at_10`/`recall_at_20` all computed without raising --
+    `PerQueryReportRow` has no missing-value sentinel (unlike
+    `SweepReportRow`'s `MISSING`), so a retriever that failed outright,
+    or whose recall/nDCG/MRR computation failed for even one cutoff,
+    contributes no per-query rows for that run_id. Per-query row
+    emission additionally requires that `config.cutoffs`, as a set,
+    equals exactly `{1, 5, 10, 20}` (`SUPPORTED_CUTOFFS`) -- the only
+    cutoff set `load_sweep_config` ever admits in production -- because
+    `PerQueryReportRow`'s schema is wide on exactly those four fixed
+    columns (Requirement 1.3, 1.4); a `SweepConfig` built directly with
+    a different cutoff set (as in `tests/test_orchestration.py`'s
+    orchestration-mechanics test) yields no per-query rows rather than
+    a wide row with a fabricated or truncated cutoff value.
     """
     deepest_cutoff = max(config.cutoffs)
+    emit_per_query_rows = set(config.cutoffs) == set(SUPPORTED_CUTOFFS)
 
     # Computed once, from corpus/qrels data alone -- never per-retriever
     # (Requirement 6.7).
@@ -150,6 +177,7 @@ def run_sweep(
         )
 
     rows: List[SweepReportRow] = []
+    per_query_rows: List[PerQueryReportRow] = []
     all_succeeded = True
 
     for retriever_config in config.retrievers:
@@ -200,6 +228,7 @@ def run_sweep(
         # ndcg_at_10 / mrr_at_10: computed once per run_id, at a fixed
         # cutoff of 10, from the full ranked_lists -- never inside the
         # k-loop below (Requirement 6.6).
+        ndcg_mrr_succeeded = True
         try:
             per_query_ndcg: Dict[str, float] = {
                 qid: ndcg_at_10(ranked_list, bundle.qrels.get(qid, {}))
@@ -219,8 +248,20 @@ def run_sweep(
             # MetricComputationError-equivalent, scoped to this run_id's
             # ndcg/mrr cells only -- recall_at_k and timing are unaffected.
             all_succeeded = False
+            ndcg_mrr_succeeded = False
+            per_query_ndcg = {}
+            per_query_mrr = {}
             run_ndcg_at_10 = MISSING
             run_mrr_at_10 = MISSING
+
+        # Per-cutoff per-query recall dicts, collected across the k-loop
+        # below (significance-testing spec, Requirement 1.1, 1.4) -- the
+        # exact same per_query_recall dict each iteration already builds
+        # on its way to row_recall_at_k's mean, kept keyed by cutoff so
+        # the Per_Query_Report row assembly after the loop can read all
+        # four cutoffs' per-query values without recomputing any of them.
+        per_query_recall_by_cutoff: Dict[int, Dict[str, float]] = {}
+        recall_succeeded_by_cutoff: Dict[int, bool] = {}
 
         for k in config.cutoffs:
             try:
@@ -235,11 +276,14 @@ def run_sweep(
                 row_recall_at_k: Union[float, str] = mean_over_qualifying_queries(
                     per_query_recall, bundle.qrels
                 )
+                per_query_recall_by_cutoff[k] = per_query_recall
+                recall_succeeded_by_cutoff[k] = True
             except Exception:
                 # MetricComputationError-equivalent, scoped to only this
                 # row's recall_at_k cell.
                 all_succeeded = False
                 row_recall_at_k = MISSING
+                recall_succeeded_by_cutoff[k] = False
 
             rows.append(
                 SweepReportRow(
@@ -257,7 +301,36 @@ def run_sweep(
                 )
             )
 
-    return rows, all_succeeded
+        # Per_Query_Report row assembly (significance-testing spec,
+        # Requirement 1): only when every metric this run_id needs --
+        # ndcg_at_10, mrr_at_10, and recall_at_k for all four fixed
+        # cutoffs -- computed successfully, and the declared cutoff set
+        # is exactly {1, 5, 10, 20} (PerQueryReportRow's wide-on-cutoff
+        # schema). PerQueryReportRow carries no missing-value sentinel,
+        # so a run_id with any failure above contributes zero per-query
+        # rows rather than a row with a fabricated cell.
+        if emit_per_query_rows and ndcg_mrr_succeeded and all(
+            recall_succeeded_by_cutoff.get(cutoff, False) for cutoff in SUPPORTED_CUTOFFS
+        ):
+            for qid, ranked_list in ranked_lists.items():
+                qrels_for_query = bundle.qrels.get(qid, {})
+                per_query_rows.append(
+                    PerQueryReportRow(
+                        run_id=run_id,
+                        retriever=retriever_config.name,
+                        chunking_strategy=config.chunking_strategy,
+                        query_id=qid,
+                        recall_at_1=per_query_recall_by_cutoff[1][qid],
+                        recall_at_5=per_query_recall_by_cutoff[5][qid],
+                        recall_at_10=per_query_recall_by_cutoff[10][qid],
+                        recall_at_20=per_query_recall_by_cutoff[20][qid],
+                        ndcg_at_10=per_query_ndcg[qid],
+                        mrr_at_10=per_query_mrr[qid],
+                        num_judged_relevant=len(judged_relevant_docs(qrels_for_query)),
+                    )
+                )
+
+    return rows, per_query_rows, all_succeeded
 
 
 def make_default_retriever_factory(cache_folder: Path) -> RetrieverFactory:
@@ -347,10 +420,20 @@ def main(argv: Optional[List[str]] = None) -> int:
        once `run_sweep` returns rows -- even if some rows carry a
        `MISSING` marker, per Requirement 7's row-count guarantee. On
        `ReportWriteError`: print the error, return non-zero
-       (Requirement 10.4).
+       (Requirement 10.4). Then
+       `write_per_query_report(per_query_rows, config.output_path.parent
+       / "per_query.csv")` (significance-testing spec, Requirement 1.1)
+       -- in this same run, no second retrieval, no separate entry
+       point. On `PerQueryReportError`: print the error, return
+       non-zero, leaving `results/per_query.csv` absent or in its
+       pre-run state (Requirement 1.8) -- even though
+       `results/sweep.csv` was already written successfully; the two
+       files' write outcomes are independent, but a per_query.csv
+       failure still fails the run.
     9. Return 0 only if every row `run_sweep` produced has no
        `MISSING` cell (`all_succeeded is True`); otherwise return
-       non-zero, even though `results/sweep.csv` was written in full
+       non-zero, even though `results/sweep.csv` (and
+       `results/per_query.csv`, if it was written) was written in full
        (Requirement 10.3, 10.4).
     """
     args = _parse_args(argv)
@@ -388,7 +471,7 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     retriever_factory = make_default_retriever_factory(config.data_dir / "hf_cache")
     try:
-        rows, all_succeeded = run_sweep(config, bundle, retriever_factory)
+        rows, per_query_rows, all_succeeded = run_sweep(config, bundle, retriever_factory)
     except ZeroQualifyingQueriesError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
@@ -396,6 +479,13 @@ def main(argv: Optional[List[str]] = None) -> int:
     try:
         write_sweep_report(rows, config.output_path)
     except ReportWriteError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+
+    per_query_path = config.output_path.parent / "per_query.csv"
+    try:
+        write_per_query_report(per_query_rows, per_query_path)
+    except PerQueryReportError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
 
@@ -407,7 +497,10 @@ def main(argv: Optional[List[str]] = None) -> int:
         )
         return 1
 
-    print(f"Sweep complete: wrote {len(rows)} rows to {config.output_path}")
+    print(
+        f"Sweep complete: wrote {len(rows)} rows to {config.output_path} and "
+        f"{len(per_query_rows)} rows to {per_query_path}"
+    )
     return 0
 
 
