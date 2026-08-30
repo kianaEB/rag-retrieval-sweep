@@ -83,3 +83,18 @@ These are non-negotiable properties of this project, not preferences:
   never downloads BEIR datasets, and never downloads model weights. CI
   exists to catch regressions in the metric and data-loading code, not
   to reproduce results.
+- **Local generative models are in scope.** A small instruction-tuned
+  model may be run for answer generation and a separate model for
+  groundedness judging, both on CPU, both with weights cached under
+  `data/`. The no-paid-API constraint is unchanged: no OpenAI,
+  Anthropic, Cohere or any metered endpoint. No fine-tuning of any
+  model.
+- **Generated answer quality is not a deliverable.** The models are
+  small by design; the measured quantity is the quarantine rate and
+  its agreement with a hand-checked sample, not how good the answers
+  read.
+- **transformers is already a pinned transitive dependency** (via
+  `sentence-transformers`), so no new top-level dependency is
+  required.
+- **Tests remain network-free.** No test loads or downloads a
+  generative model.

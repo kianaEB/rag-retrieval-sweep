@@ -73,8 +73,7 @@ error that contaminates the metric being measured.
    failure bucketing; ANALYSIS.md; pytest over the data layer; GitHub
    Actions CI; README.md with the results table and the honest headline;
    SPEC.md with design and threats to validity.
-3. Stretch: groundedness gate over generated answers, quarantine rate,
-   hand-checked sample.
+3. Groundedness gate over generated answers, quarantine rate,    hand-checked sample. Brought forward ahead of the remaining session-2 work (chunking, failure bucketing, ANALYSIS.md): the repo currently contains no generative model, and this is the only planned work that  demonstrates prompting and generation.
 
 ## Definition of done
 README.md, SPEC.md, ANALYSIS.md, tests/ and a passing CI workflow.

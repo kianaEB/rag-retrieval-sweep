@@ -23,10 +23,20 @@ rag-retrieval-sweep/
 ├── results/
 │   ├── sweep.csv                   # one row per configuration: metrics,
 │   │                                 timing, failure bucket
-│   └── token_length_report.json    # all-MiniLM-L6-v2 tokenizer
-│                                      truncation check: fraction of
-│                                      corpus documents exceeding its
-│                                      256-token limit (repo-writeup spec)
+│   ├── token_length_report.json    # all-MiniLM-L6-v2 tokenizer
+│   │                                  truncation check: fraction of
+│   │                                  corpus documents exceeding its
+│   │                                  256-token limit (repo-writeup spec)
+│   ├── groundedness.csv            # one row per (query_id, claim_index)
+│   │                                  claim: the judge's verdict, score,
+│   │                                  and quarantine decision
+│   │                                  (groundedness-gate spec)
+│   └── hand_checked_sample.csv     # exported-then-re-imported
+│                                      hand-labelling sample, carrying
+│                                      the judge's verdict alongside the
+│                                      human hand label for the
+│                                      Agreement_Rate check
+│                                      (groundedness-gate spec)
 ├── src/               # loading, retrievers, chunking, metrics,
 │                      the sweep entry point
 ├── tests/            # pytest over metric functions and the data layer
