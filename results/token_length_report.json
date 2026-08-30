@@ -1,0 +1,7 @@
+{
+  "model_name": "sentence-transformers/all-MiniLM-L6-v2",
+  "max_sequence_length": 256,
+  "num_documents_total": 5183,
+  "num_documents_exceeding": 3681,
+  "fraction_exceeding": 0.710206444144318
+}
