@@ -15,10 +15,18 @@ rag-retrieval-sweep/
 │                      and model weights — downloads never scatter into
 │                      the repo root.
 ├── docs/
-│   └── PROJECT_BRIEF.md
+│   ├── PROJECT_BRIEF.md
+│   └── numeric_traceability.csv    # Numeric_Claim ledger: every number
+│                                     in README.md/SPEC.md mapped to the
+│                                     committed artifact it was read from
+│                                     (repo-writeup spec)
 ├── results/
-│   └── sweep.csv     # one row per configuration: metrics, timing,
-│                      failure bucket
+│   ├── sweep.csv                   # one row per configuration: metrics,
+│   │                                 timing, failure bucket
+│   └── token_length_report.json    # all-MiniLM-L6-v2 tokenizer
+│                                      truncation check: fraction of
+│                                      corpus documents exceeding its
+│                                      256-token limit (repo-writeup spec)
 ├── src/               # loading, retrievers, chunking, metrics,
 │                      the sweep entry point
 ├── tests/            # pytest over metric functions and the data layer
