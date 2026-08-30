@@ -63,9 +63,12 @@ would pull one of these in early.
 - End-to-end tests over the real corpus (tests that run the
   Sweep_Runner against the real BEIR SciFact data rather than an
   in-memory stub corpus).
-- GitHub Actions CI.
 - `README.md` with the results table and the honest headline.
 - `SPEC.md` with design and threats to validity.
+
+GitHub Actions CI has shipped (`.github/workflows/ci.yml`: `push` and
+`pull_request`, `ubuntu-latest`, Python 3.13, installs
+`requirements.txt`, runs `pytest` only) and is no longer pending work.
 
 Session 1 does, however, include a call-counting test of the
 Sweep_Runner orchestration loop itself: a stub `Retriever` implementing

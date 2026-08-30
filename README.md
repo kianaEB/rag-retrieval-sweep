@@ -1,5 +1,7 @@
 # rag-retrieval-sweep
 
+[![CI](https://github.com/kianaEB/rag-retrieval-sweep/actions/workflows/ci.yml/badge.svg)](https://github.com/kianaEB/rag-retrieval-sweep/actions/workflows/ci.yml)
+
 A controlled empirical study of when dense retrieval beats a lexical
 baseline, on BEIR SciFact. See `SPEC.md` for the full design and
 threats to validity.

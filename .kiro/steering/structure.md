@@ -72,7 +72,13 @@ The repo does not count as done until it ships all of the following:
 - `tests/` — pytest coverage over the metric functions and the data
   layer.
 - A passing GitHub Actions workflow (CI installs `requirements.txt` and
-  runs the test suite on every push).
+  runs the test suite on every push) — shipped as
+  `.github/workflows/ci.yml`, triggered on `push` and `pull_request`,
+  running on `ubuntu-latest` with Python 3.13. It installs
+  `requirements.txt` and runs `pytest` only — no sweep, no dataset
+  download, no model download, consistent with the network-free test
+  suite (session-1 Requirement 11.3, significance-testing Requirement
+  7.7).
 
 `SPEC.md` must contain a "Threats to validity" section, and that section
 must name at minimum:
