@@ -97,3 +97,36 @@ class RunConfigMergeError(Exception):
 class SignificanceWriteError(Exception):
     """results/significance.csv could not be written (Requirement 2.7).
     The analyzer's analogue of ReportWriteError."""
+
+
+# --- repo-writeup spec: extends the hierarchy above ---
+
+
+class TokenizerLoadError(Exception):
+    """The all-MiniLM-L6-v2 tokenizer could not be loaded from the local
+    cache under data/ without making a network call (Requirement 11.7).
+    Never retried without the offline flags; no network call is ever
+    attempted after this is raised."""
+
+
+class TokenLengthReportError(Exception):
+    """results/token_length_report.json could not be written
+    (Requirement 11.4). The Token_Length_Analysis's analogue of
+    ReportWriteError."""
+
+
+class TraceabilityFileError(Exception):
+    """docs/numeric_traceability.csv is missing, cannot be parsed,
+    lacks a required column, or contains a row whose stated_value text
+    is not formatted consistent with its own declared stated_precision
+    (Requirement 12.1, 12.2, 12.4). Halts the Verification_Pass before
+    verifying any row -- no partial verification is reported as a
+    pass."""
+
+
+class VerificationSourceError(Exception):
+    """A traceability row's cited artifact file is absent, its row
+    selector matches zero or more than one row, its named field/key is
+    absent, or its `computation` value is not one of the fixed enum
+    members (Requirement 12.1, 12.3). A row that cannot be resolved is
+    a hard failure, not a skipped row."""

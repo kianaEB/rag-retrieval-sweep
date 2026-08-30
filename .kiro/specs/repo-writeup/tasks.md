@@ -26,9 +26,11 @@ runs to a manual step rather than an automated test. `docs/
 numeric_traceability.csv` is scaffolded (Task 7) once
 `verify_writeup_numbers.py`'s ledger schema is fixed, then grows one row
 per Numeric_Claim as `README.md` (Task 8) and `SPEC.md` (Task 9) are
-drafted — `SPEC.md` alone depends on Task 6's real
-`token_length_report.json`, since Requirement 11's truncation finding
-belongs in `SPEC.md`'s threats-to-validity section, not in `README.md`.
+drafted — both documents depend on Task 6's real
+`token_length_report.json`, since Requirement 11.6 obliges both the
+Readme_Document's "Headline finding" section and the Spec_Document's
+threats-to-validity section to state the truncation asymmetry when the
+measured fraction exceeds 1%.
 The final task (Task 10) is the real Verification_Pass run against the
 fully populated ledger and the real committed artifacts, fixing any
 `MISMATCH` before the feature is considered done. All done checks are
@@ -39,7 +41,7 @@ committed artifact (Tasks 6, 7, 8, 9, 10).
 
 ## Tasks
 
-- [ ] 1. Extract `format_document_text` in `src/retrievers/dense_retriever.py`
+- [x] 1. Extract `format_document_text` in `src/retrievers/dense_retriever.py`
   - Add a new module-level function
     `format_document_text(doc: Dict[str, str]) -> str` returning
     `f"{doc.get('title', '')} {doc.get('text', '')}"`, extracted
@@ -59,7 +61,7 @@ committed artifact (Tasks 6, 7, 8, 9, 10).
     than left duplicated alongside the new function.
   - _Requirements: 11.1 (introduction's extract-and-import exception)_
 
-- [ ] 2. Write `src/token_length_analysis.py`
+- [x] 2. Write `src/token_length_analysis.py`
   - Implement `TokenLengthStats` (frozen dataclass:
     `num_documents_total`, `num_documents_exceeding`,
     `fraction_exceeding`) and `compute_exceedance_stats(token_counts,
@@ -107,7 +109,7 @@ committed artifact (Tasks 6, 7, 8, 9, 10).
     prints `ok` and exits 0. No network call.
   - _Requirements: 11.1, 11.2, 11.3, 11.4, 11.7_
 
-- [ ] 3. Write `tests/test_token_length_analysis.py`
+- [x] 3. Write `tests/test_token_length_analysis.py`
   - Cover `compute_exceedance_stats` (Property 1) on: an empty list;
     an all-under-threshold list; an all-over-threshold list; a mixed
     list with an independently hand-computed expected fraction; and
@@ -133,7 +135,7 @@ committed artifact (Tasks 6, 7, 8, 9, 10).
     prints `ok`.
   - _Requirements: 11.1, 11.2, 11.3, 11.4, 11.7_
 
-- [ ] 4. Write `src/verify_writeup_numbers.py`
+- [x] 4. Write `src/verify_writeup_numbers.py`
   - Implement `TraceabilityRow` (frozen dataclass: `claim_id`,
     `document`, `location`, `stated_value`, `stated_precision`,
     `source_artifact`, `source_fields`, `computation`) and
@@ -199,7 +201,7 @@ committed artifact (Tasks 6, 7, 8, 9, 10).
     prints `ok` and exits 0.
   - _Requirements: 12.1, 12.2, 12.3, 12.4_
 
-- [ ] 5. Write `tests/test_verify_writeup_numbers.py`
+- [x] 5. Write `tests/test_verify_writeup_numbers.py`
   - Cover `round_half_up`'s tie-breaking (Property 5):
     `round_half_up(0.125, "2dp") == "0.13"` alongside a direct
     comparison statement that Python's own `round(0.125, 2) == 0.12`.
@@ -237,7 +239,7 @@ committed artifact (Tasks 6, 7, 8, 9, 10).
     prints `ok`.
   - _Requirements: 12.1, 12.2, 12.3, 12.4_
 
-- [ ] 6. Run the Token_Length_Analysis for real and commit `results/token_length_report.json`
+- [x] 6. Run the Token_Length_Analysis for real and commit `results/token_length_report.json`
   - Run `python -m src.token_length_analysis` (using the already-cached
     corpus and `all-MiniLM-L6-v2` tokenizer under `data/` from the
     completed sweep — no download expected). Inspect the printed exit
@@ -252,7 +254,7 @@ committed artifact (Tasks 6, 7, 8, 9, 10).
     populated.
   - _Requirements: 11.1, 11.2, 11.3, 11.4, 1.4_
 
-- [ ] 7. Scaffold `docs/numeric_traceability.csv`
+- [x] 7. Scaffold `docs/numeric_traceability.csv`
   - Create the CSV with the header row matching
     `src/verify_writeup_numbers.py`'s `TraceabilityRow` schema exactly:
     `claim_id,document,location,stated_value,stated_precision,source_artifact,source_fields,computation`.
@@ -264,7 +266,7 @@ committed artifact (Tasks 6, 7, 8, 9, 10).
     prints `ok` and exits 0.
   - _Requirements: 12.1, 12.4_
 
-- [ ] 8. Author `README.md` at the repository root
+- [x] 8. Author `README.md` at the repository root
   - Write the first paragraph stating: the nDCG@10 mean difference
     (`all-MiniLM-L6-v2` minus BM25) from `results/significance.csv`'s
     nDCG@10 row `mean_diff`; the 95% CI (`ci_lower`, `ci_upper`) from
@@ -273,6 +275,18 @@ committed artifact (Tasks 6, 7, 8, 9, 10).
     `indistinguishable`, a statement that the comparison is
     indistinguishable from noise — not described as a win for either
     run (Requirement 2.4).
+  - Immediately following that verdict, in the same "Headline finding"
+    section, write one or two sentences stating the token-length
+    confound (Requirement 11.6): the fraction of corpus documents
+    exceeding `all-MiniLM-L6-v2`'s 256-token limit, read from
+    `results/token_length_report.json`'s `fraction_exceeding` field;
+    the asymmetry that creates under whole-document chunking (BM25
+    scores each document's full text, while the dense run scores only
+    the first 256 tokens of that same document); and a pointer to
+    `SPEC.md`'s "Threats to validity" section for the full discussion.
+    This statement SHALL NOT appear only in "What this does not
+    claim", which sits below the results table — a reader of the
+    Headline finding section alone must learn of the confound.
   - Write the engineering-cost paragraph: the Reference_Run's and
     `all-MiniLM-L6-v2` run's `index_time` from `results/sweep.csv`; the
     ratio of the two (dense over BM25), computed from those two values;
@@ -311,13 +325,19 @@ committed artifact (Tasks 6, 7, 8, 9, 10).
     `document=README.md`.
   - Done check:
     `python -c "text = open('README.md', encoding='utf-8').read(); assert 'What this does not claim' in text; assert 'indistinguishable' in text; assert 'python -m src.sweep_runner --config configs/sweep.yaml' in text; assert 'python -m src.significance --config configs/significance.yaml' in text; print('ok')"`
-    prints `ok`, and
-    `python -c "import pandas as pd; df = pd.read_csv('docs/numeric_traceability.csv'); assert (df['document'] == 'README.md').sum() > 0; print('ok')"`
+    prints `ok`;
+    `python -c "import json, re; text = open('README.md', encoding='utf-8').read(); headline = text.split('## Headline finding', 1)[1].split('## ', 1)[0]; report = json.load(open('results/token_length_report.json')); pct = f\"{report['fraction_exceeding'] * 100:.2f}\"; assert pct in headline, (pct, headline); assert 'SPEC.md' in headline; print('ok')"`
+    prints `ok`, confirming the token-length confound sentence(s) with
+    the correct percentage and a pointer to `SPEC.md` appear within the
+    "Headline finding" section itself, not only in "What this does not
+    claim"; and
+    `python -c "import pandas as pd; df = pd.read_csv('docs/numeric_traceability.csv'); assert (df['document'] == 'README.md').sum() > 0; assert (df['source_artifact'] == 'token_length_report.json').sum() > 0; print('ok')"`
     prints `ok`, confirming ledger rows were added alongside the
-    document's prose.
-  - _Requirements: 1.1, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 3.1, 3.2, 3.3, 3.4, 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 5.1, 5.2, 5.3, 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 7.1, 7.2, 7.3, 7.4, 7.5_
+    document's prose, including at least one row sourced from
+    `token_length_report.json`.
+  - _Requirements: 1.1, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 3.1, 3.2, 3.3, 3.4, 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 5.1, 5.2, 5.3, 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 7.1, 7.2, 7.3, 7.4, 7.5, 11.6_
 
-- [ ] 9. Author `SPEC.md` at the repository root
+- [x] 9. Author `SPEC.md` at the repository root
   - Write the design-summary section: the config-driven sweep grid
     (retrievers, cutoffs, chunking strategy) exactly as recorded in
     `results/run_config.json`'s `sweep_config` object; the
@@ -359,7 +379,7 @@ committed artifact (Tasks 6, 7, 8, 9, 10).
     prints `ok`.
   - _Requirements: 1.1, 8.1, 8.2, 8.3, 8.4, 8.5, 9.1, 9.2, 10.1, 10.2, 10.3, 10.4, 10.5, 10.6, 10.7, 11.5, 11.6_
 
-- [ ] 10. Run the Verification_Pass for real and fix any mismatch
+- [x] 10. Run the Verification_Pass for real and fix any mismatch
   - Run `python -m src.verify_writeup_numbers --repo-root .` against
     the real, fully populated `docs/numeric_traceability.csv` (Tasks 7,
     8, 9) and the real committed `results/sweep.csv`,

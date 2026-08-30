@@ -489,12 +489,17 @@ by dropped text under whole-document chunking.
    exceeding the 256-token limit, read from the Token_Length_Report.
 6. IF the fraction computed by the Token_Length_Analysis is strictly
    greater than 1% of corpus documents (that is, more than 0.01 as a
-   proportion), THEN THE Spec_Document SHALL state that the
-   Reference_Run scores each document's full text while the
-   `all-MiniLM-L6-v2` run scores only the first 256 tokens of that same
-   document under whole-document chunking, and that this asymmetry is a
-   confound in the headline comparison rather than evidence about
-   either retriever's ranking quality.
+   proportion), THEN THE Spec_Document AND THE Readme_Document SHALL
+   EACH state that the Reference_Run scores each document's full text
+   while the `all-MiniLM-L6-v2` run scores only the first 256 tokens of
+   that same document under whole-document chunking, and that this
+   asymmetry is a confound in the headline comparison rather than
+   evidence about either retriever's ranking quality; within the
+   Readme_Document, this statement SHALL appear in the "Headline
+   finding" section required by Requirement 2, immediately following
+   the nDCG@10 comparison and verdict stated there, so that a reader of
+   the Readme_Document alone learns of the confound without needing to
+   also read the Spec_Document.
 7. IF the `all-MiniLM-L6-v2` tokenizer cannot be loaded from the cache
    under `data/` without making a network call, THEN THE
    Token_Length_Analysis SHALL raise an error identifying that the

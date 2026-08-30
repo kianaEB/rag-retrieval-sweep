@@ -28,6 +28,16 @@ from src.errors import ModelLoadError
 from src.retrievers.base import doc_id_sort_key
 
 
+def format_document_text(doc: Dict[str, str]) -> str:
+    """Formats a single corpus document as `title + " " + text`, the
+    same `title`/`text` concatenation used to build the embedding index
+    in `DenseRetriever.build_index`. Extracted so
+    `src/token_length_analysis.py` can tokenize the exact same text the
+    dense retriever encodes, rather than re-deriving it -- there is
+    exactly one implementation, called from both places."""
+    return f"{doc.get('title', '')} {doc.get('text', '')}"
+
+
 class DenseRetriever:
     """Dense baseline retriever implementing the `Retriever` protocol
     (`src/retrievers/base.py`)."""
@@ -89,10 +99,7 @@ class DenseRetriever:
         (Requirement 4.5).
         """
         self._doc_ids = list(corpus.keys())
-        texts = [
-            f"{corpus[doc_id].get('title', '')} {corpus[doc_id].get('text', '')}"
-            for doc_id in self._doc_ids
-        ]
+        texts = [format_document_text(corpus[doc_id]) for doc_id in self._doc_ids]
         start = time.perf_counter()
         self._doc_embeddings = self._model.encode(
             texts,
