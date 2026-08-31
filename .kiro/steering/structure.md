@@ -31,6 +31,12 @@ rag-retrieval-sweep/
 │   │                                  claim: the judge's verdict, score,
 │   │                                  and quarantine decision
 │   │                                  (groundedness-gate spec)
+│   ├── generated_answers.csv       # one row per Generation_Subset
+│   │                                  query: the raw Generated_Answer
+│   │                                  plus its prompt's untruncated
+│   │                                  token count, so a Claim traces
+│   │                                  back to the text it was segmented
+│   │                                  from (groundedness-gate spec)
 │   └── hand_checked_sample.csv     # exported-then-re-imported
 │                                      hand-labelling sample, carrying
 │                                      the judge's verdict alongside the

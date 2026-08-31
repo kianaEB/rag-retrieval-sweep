@@ -79,7 +79,19 @@ _NOT_APPLICABLE_SENTINEL = "n/a"
 _SENTINEL_VALUES = (_MISSING_SENTINEL, _NOT_APPLICABLE_SENTINEL)
 
 # source_artifact values resolved as a row-selected CSV column.
-_CSV_ARTIFACTS = ("sweep.csv", "significance.csv", "per_query.csv")
+# groundedness.csv, hand_checked_joined.csv, and generated_answers.csv
+# (groundedness-gate spec) are resolved by the same generic
+# row_selector.field logic as the session-1/significance-testing
+# artifacts already listed here, plus the additive "all"/"__count__"
+# and "col_a==col_b" extensions below.
+_CSV_ARTIFACTS = (
+    "sweep.csv",
+    "significance.csv",
+    "per_query.csv",
+    "groundedness.csv",
+    "hand_checked_joined.csv",
+    "generated_answers.csv",
+)
 
 _NDP_PATTERN = re.compile(r"(\d+)dp")
 _PERCENTAGE_PATTERN = re.compile(r"percentage:(\d+)dp")
@@ -437,6 +449,19 @@ def _resolve_csv_reference(
     unambiguous). Raises `VerificationSourceError` if the reference is
     malformed, the selector matches zero or more than one row, or the
     named field/column is absent.
+
+    Two additive extensions, needed for Quarantine_Rate
+    (groundedness-gate spec), compose with the `row_selector.field`
+    dot-split unchanged:
+
+    - If `row_selector` is the literal string `"all"`, per-`key=value`
+      filtering is skipped entirely and every row of `frame` matches --
+      used when no filtering is needed (e.g. the denominator of
+      Quarantine_Rate, the total row count).
+    - If `field` is the literal sentinel `"__count__"`, the "must match
+      exactly 1 row" check is skipped and `float(len(matched))` (the
+      count of matching rows) is returned instead of reading a column
+      value from a single row.
     """
     if "." not in reference:
         raise VerificationSourceError(
@@ -445,20 +470,26 @@ def _resolve_csv_reference(
         )
     row_selector_str, field = reference.rsplit(".", 1)
 
-    mask = pandas.Series(True, index=frame.index)
-    for pair in row_selector_str.split(","):
-        if "=" not in pair:
-            raise VerificationSourceError(
-                f"malformed row selector {row_selector_str!r} for {source_artifact}"
-            )
-        key, value = pair.split("=", 1)
-        if key not in frame.columns:
-            raise VerificationSourceError(
-                f"row selector column {key!r} not found in {source_artifact}"
-            )
-        mask &= frame[key].astype(str) == value
+    if row_selector_str == "all":
+        matched = frame
+    else:
+        mask = pandas.Series(True, index=frame.index)
+        for pair in row_selector_str.split(","):
+            if "=" not in pair:
+                raise VerificationSourceError(
+                    f"malformed row selector {row_selector_str!r} for {source_artifact}"
+                )
+            key, value = pair.split("=", 1)
+            if key not in frame.columns:
+                raise VerificationSourceError(
+                    f"row selector column {key!r} not found in {source_artifact}"
+                )
+            mask &= frame[key].astype(str) == value
+        matched = frame[mask]
 
-    matched = frame[mask]
+    if field == "__count__":
+        return float(len(matched))
+
     if len(matched) != 1:
         raise VerificationSourceError(
             f"row selector {row_selector_str!r} matched {len(matched)} row(s) "
@@ -519,6 +550,37 @@ def _resolve_top_level_key(data: dict, reference: str, source_artifact: str) -> 
     return value
 
 
+def _resolve_column_equality_reference(
+    frame: pandas.DataFrame, reference: str, source_artifact: str
+) -> float:
+    """Resolves a `col_a==col_b` reference (e.g.
+    `"judge_verdict==hand_label"`, Agreement_Rate's resolution against
+    `hand_checked_joined.csv`) to the fraction of rows where the two
+    named columns agree, as a single float over the whole file --
+    genuinely a two-column aggregate, not a single-cell
+    `row_selector.field` lookup, so this is resolved directly from
+    `frame` rather than composing with `_resolve_csv_reference`.
+
+    Raises `VerificationSourceError` if either column is absent from
+    `frame`, or if `frame` has zero rows (a mean over zero rows is
+    undefined).
+    """
+    col_a, col_b = reference.split("==", 1)
+    if col_a not in frame.columns:
+        raise VerificationSourceError(
+            f"column {col_a!r} not found in {source_artifact} (from {reference!r})"
+        )
+    if col_b not in frame.columns:
+        raise VerificationSourceError(
+            f"column {col_b!r} not found in {source_artifact} (from {reference!r})"
+        )
+    if len(frame) == 0:
+        raise VerificationSourceError(
+            f"{source_artifact} has zero rows; cannot resolve {reference!r}"
+        )
+    return float((frame[col_a].astype(str) == frame[col_b].astype(str)).mean())
+
+
 def load_artifact_values(
     source_artifact: str, source_fields: str, artifacts_dir: Path
 ) -> List[Union[float, str]]:
@@ -527,9 +589,15 @@ def load_artifact_values(
     reference, in order (Requirement 12.1).
 
     Dispatches on `source_artifact`: for `sweep.csv`/`significance.csv`/
-    `per_query.csv`, each reference is a `row_selector.field` pair
-    resolved against the parsed CSV (`_resolve_csv_reference`); for
-    `run_config.json`, each reference is a dotted JSON path
+    `per_query.csv`/`groundedness.csv`/`hand_checked_joined.csv`, each
+    reference is resolved against the parsed CSV -- first checking
+    whether it is a `col_a==col_b` column-equality reference
+    (`_resolve_column_equality_reference`, e.g. Agreement_Rate's
+    `judge_verdict==hand_label`), and only if not, falling back to the
+    `row_selector.field` resolution (`_resolve_csv_reference`, which
+    itself also supports the `all` row selector and the `__count__`
+    field sentinel for Quarantine_Rate's count-aggregate references);
+    for `run_config.json`, each reference is a dotted JSON path
     (`_resolve_json_path`); for `token_length_report.json`, each
     reference is a top-level key (`_resolve_top_level_key`). Raises
     `VerificationSourceError` if the artifact file is absent, a row
@@ -541,7 +609,13 @@ def load_artifact_values(
 
     if source_artifact in _CSV_ARTIFACTS:
         frame = _read_csv_artifact(artifacts_dir / source_artifact)
-        return [_resolve_csv_reference(frame, ref, source_artifact) for ref in references]
+        values: List[Union[float, str]] = []
+        for ref in references:
+            if "==" in ref:
+                values.append(_resolve_column_equality_reference(frame, ref, source_artifact))
+            else:
+                values.append(_resolve_csv_reference(frame, ref, source_artifact))
+        return values
 
     if source_artifact == "run_config.json":
         data = _read_json_artifact(artifacts_dir / source_artifact)

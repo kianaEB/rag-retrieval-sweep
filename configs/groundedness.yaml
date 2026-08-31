@@ -1,0 +1,94 @@
+# Groundedness_Config for the groundedness-gate spec (rag-retrieval-sweep).
+#
+# Declares, as data, which frozen session-1 run to replay retrieval
+# from, the generation subset and hand-checked sample sizes/seeds, both
+# model identifiers, the prompt template, the quarantine threshold, and
+# a documented, cross-validated record of the Judge_Model's native-
+# label-to-Groundedness_Verdict mapping and score definition
+# (Requirement 1.1, 6.3, 6.10). Fixed once, before any Quarantine_Rate
+# exists; the label_mapping/score_definition fields below must agree
+# with src/groundedness_labels.py's NLI_LABEL_TO_VERDICT and
+# src/groundedness_config.py's EXPECTED_SCORE_DEFINITION or the run
+# halts at config-load time.
+
+replayed_run_id: bm25__whole_document
+
+# Matches the sweep's own retrieval depth (configs/sweep.yaml's
+# cutoffs include 10) rather than a second, narrower top-k declared
+# just for generation. Measured directly against the real
+# Generation_Subset (30 queries, seed 4242): even replay_top_k=1
+# already exceeds both models' 512-token input budget for 8/30
+# queries (SciFact abstracts run longer under the flan-t5/DeBERTa
+# tokenizers than a quick estimate from average character length
+# would suggest), and replay_top_k=3 exceeds it for 30/30 queries.
+# Shrinking top-k does not avoid truncation here, it only changes how
+# much of the *first* document survives -- so replay_top_k is kept at
+# 10 to match the sweep, and the truncation itself is recorded per run
+# (results/run_config.json's "groundedness" sub-object:
+# generator_max_input_tokens / judge_max_input_tokens /
+# generator_prompt_truncation / judge_premise_truncation) rather than
+# hidden by a smaller top-k that still truncates. See SPEC.md's
+# "Threats to validity" for the corpus-level truncation asymmetry this
+# mirrors on the retrieval side (token_length_report.json).
+replay_top_k: 10
+
+generation_subset_size: 30
+generation_subset_seed: 4242
+
+hand_checked_sample_size: 50
+hand_checked_sample_seed: 777        # distinct from generation_subset_seed
+
+generator_model_name: google/flan-t5-base
+judge_model_name: cross-encoder/nli-deberta-v3-xsmall
+
+# Hugging Face's transformers defaults max_length to 20 tokens when
+# neither max_length nor max_new_tokens is passed to .generate(),
+# which produced answers cut mid-word and (because there was no
+# sentence-ending punctuation left to split on) exactly one Claim per
+# query. Declared here, as data, like every other generation
+# parameter, and passed through to GeneratorModel.generate() and
+# recorded in run_config.json's "groundedness" sub-object.
+max_new_tokens: 128
+
+# Address greedy-decoding degeneracy observed directly in
+# results/generated_answers.csv: at least one answer (query 1272)
+# repeated the same clause back-to-back, and several answers were
+# verbatim copies of a retrieved document's title. Both are
+# deterministic decoding constraints (no sampling RNG involved), so
+# Requirement 4.4's byte-for-byte-identical-rerun guarantee is
+# unaffected. no_repeat_ngram_size: 0 and repetition_penalty: 1.0
+# would each be a no-op (transformers' own defaults); both are set
+# here as an explicit, declared opt-in rather than a silent decoding
+# change.
+no_repeat_ngram_size: 3
+repetition_penalty: 1.3
+
+prompt_template: |
+  Question: {query}
+  Context:
+  {context}
+  Answer:
+
+quarantine_threshold: 0.5
+
+# Documented record, cross-validated against
+# src/groundedness_labels.py's NLI_LABEL_TO_VERDICT at config-load
+# time (Requirement 6.3). The Judge_Model's native 3-way label maps to
+# exactly one of SUPPORTED / NOT_SUPPORTED.
+label_mapping:
+  entailment: SUPPORTED
+  neutral: NOT_SUPPORTED
+  contradiction: NOT_SUPPORTED
+
+# Documented record of what judge_score means (Requirement 6.10),
+# cross-validated against src/groundedness_config.py's
+# EXPECTED_SCORE_DEFINITION constant at config-load time.
+score_definition: "The entailment probability obtained by applying softmax to the Judge_Model's three logits (entailment, neutral, contradiction); a value in [0.0, 1.0] where a higher value indicates stronger support for the Claim by the Retrieved_Context."
+
+sweep_config_path: configs/sweep.yaml
+per_query_path: results/per_query.csv
+run_config_path: results/run_config.json
+output_path: results/groundedness.csv
+hand_checked_sample_path: results/hand_checked_sample.csv
+hand_checked_joined_path: results/hand_checked_joined.csv
+generated_answers_path: results/generated_answers.csv

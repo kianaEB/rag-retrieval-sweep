@@ -130,3 +130,97 @@ class VerificationSourceError(Exception):
     absent, or its `computation` value is not one of the fixed enum
     members (Requirement 12.1, 12.3). A row that cannot be resolved is
     a hard failure, not a skipped row."""
+
+
+# --- groundedness-gate spec: extends the hierarchy above ---
+
+
+class GroundednessConfigError(ConfigError):
+    """Groundedness_Config (configs/groundedness.yaml) missing,
+    unparsable, or declaring a missing/invalid field (Requirement 1.5)."""
+
+
+class LabelMappingMismatchError(GroundednessConfigError):
+    """The Groundedness_Config's documented native-label-to-
+    Groundedness_Verdict mapping record, or its documented score
+    definition, disagrees with the corresponding hard-coded constant in
+    src/groundedness_labels.py (Requirement 1.5, 6.3, 6.10). Raised at
+    config-load time, before any answer is generated -- this is what
+    makes "fixed before any Quarantine_Rate exists ... never revised"
+    a structurally enforced property rather than a documentation
+    promise alone."""
+
+
+class GenerationSubsetInputError(Exception):
+    """results/per_query.csv is absent, cannot be parsed, or lacks a
+    run_id column or a query_id column (Requirement 2.1). Halts before
+    the Generation_Subset is sampled."""
+
+
+class ReplayedRunNotFoundError(Exception):
+    """The Replayed_Run's run_id declared in the Groundedness_Config is
+    not present in results/per_query.csv's run_id column (Requirement
+    2.5). Halts before the Generation_Subset is sampled."""
+
+
+class FrozenRetrieverConfigError(Exception):
+    """The Frozen_Retriever_Config declared for the Replayed_Run could
+    not be loaded from configs/sweep.yaml, or no retriever config
+    entry's name matches the run_id's retriever-name prefix (Requirement
+    3.6). Halts the entire run before any Generation_Subset query is
+    processed."""
+
+
+class RetrievalReplayError(Exception):
+    """The replayed retriever failed to build its index, or failed to
+    retrieve documents for a Generation_Subset query (Requirement 3.7).
+    Halts the entire run; no Generated_Answer is produced for any
+    remaining query."""
+
+
+class GeneratorModelLoadError(Exception):
+    """The Generator_Model's weights could not be downloaded to or
+    loaded from the path under data/ (Requirement 4.7)."""
+
+
+class GeneratorGenerationError(Exception):
+    """The Generator_Model failed to produce a Generated_Answer for a
+    Generation_Subset query after its weights had already loaded
+    successfully (Requirement 4.8)."""
+
+
+class JudgeModelLoadError(Exception):
+    """The Judge_Model's weights could not be loaded from the path
+    under data/, or the loaded model's id2label does not expose an
+    'entailment' class (Requirement 6.12)."""
+
+
+class JudgeVerdictError(Exception):
+    """The Judge_Model failed to produce a Groundedness_Verdict for a
+    Claim (Requirement 6.12)."""
+
+
+class GroundednessReportWriteError(Exception):
+    """results/groundedness.csv could not be written (Requirement 8.5).
+    The groundedness-gate analogue of ReportWriteError."""
+
+
+class HandCheckedSampleWriteError(Exception):
+    """results/hand_checked_sample.csv could not be exported."""
+
+
+class HandCheckedJoinedWriteError(Exception):
+    """results/hand_checked_joined.csv could not be written after
+    Hand_Label_Import succeeded (Requirement 10.5). The
+    Groundedness_Runner's analogue of GroundednessReportWriteError for
+    this third, fully-derived artifact -- never hand-edited, so a
+    write failure here is always safe to retry on a later run."""
+
+
+class GeneratedAnswersWriteError(Exception):
+    """results/generated_answers.csv could not be written. Records the
+    raw Generated_Answer, its prompt's token count (Generator_Model
+    tokenizer, before truncation), and the paired Judge_Model premise's
+    token count (before truncation) for every Generation_Subset query,
+    so a Claim can be traced back to the text it was segmented from,
+    and prompt/premise truncation is visible without a re-run."""

@@ -47,5 +47,33 @@
     "resample_count": 10000,
     "permutation_count": 10000,
     "alpha": 0.05
+  },
+  "groundedness": {
+    "replayed_run_id": "bm25__whole_document",
+    "replay_top_k": 10,
+    "generation_subset_size": 30,
+    "generation_subset_seed": 4242,
+    "generator_model_name": "google/flan-t5-base",
+    "judge_model_name": "cross-encoder/nli-deberta-v3-xsmall",
+    "max_new_tokens": 128,
+    "no_repeat_ngram_size": 3,
+    "repetition_penalty": 1.3,
+    "generator_max_input_tokens": 512,
+    "judge_max_input_tokens": 512,
+    "generator_prompt_truncation": {
+      "total_items": 30,
+      "truncated_count": 30,
+      "tokens_dropped_max": 6160,
+      "tokens_dropped_mean_when_truncated": 3632.0333333333333
+    },
+    "judge_premise_truncation": {
+      "total_items": 3090,
+      "truncated_count": 0,
+      "tokens_dropped_max": 0,
+      "tokens_dropped_mean_when_truncated": 0.0
+    },
+    "quarantine_threshold": 0.5,
+    "hand_checked_sample_size": 50,
+    "hand_checked_sample_seed": 777
   }
 }
