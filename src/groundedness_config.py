@@ -52,6 +52,7 @@ DEFAULT_OUTPUT_PATH = Path("results/groundedness.csv")
 DEFAULT_HAND_CHECKED_SAMPLE_PATH = Path("results/hand_checked_sample.csv")
 DEFAULT_HAND_CHECKED_JOINED_PATH = Path("results/hand_checked_joined.csv")
 DEFAULT_GENERATED_ANSWERS_PATH = Path("results/generated_answers.csv")
+DEFAULT_HAND_CHECKED_CONTEXT_PATH = Path("results/hand_checked_sample_context.md")
 
 
 @dataclass(frozen=True)
@@ -78,6 +79,7 @@ class GroundednessConfig:
     hand_checked_sample_path: Path
     hand_checked_joined_path: Path
     generated_answers_path: Path
+    hand_checked_context_path: Path
 
 
 def _require_field(mapping: dict, field: str, context: str) -> Any:
@@ -299,6 +301,9 @@ def load_groundedness_config(path: Path) -> GroundednessConfig:
     generated_answers_path = data.get(
         "generated_answers_path", DEFAULT_GENERATED_ANSWERS_PATH
     )
+    hand_checked_context_path = data.get(
+        "hand_checked_context_path", DEFAULT_HAND_CHECKED_CONTEXT_PATH
+    )
 
     return GroundednessConfig(
         replayed_run_id=str(replayed_run_id),
@@ -323,4 +328,5 @@ def load_groundedness_config(path: Path) -> GroundednessConfig:
         hand_checked_sample_path=Path(hand_checked_sample_path),
         hand_checked_joined_path=Path(hand_checked_joined_path),
         generated_answers_path=Path(generated_answers_path),
+        hand_checked_context_path=Path(hand_checked_context_path),
     )

@@ -224,3 +224,11 @@ class GeneratedAnswersWriteError(Exception):
     token count (before truncation) for every Generation_Subset query,
     so a Claim can be traced back to the text it was segmented from,
     and prompt/premise truncation is visible without a re-run."""
+
+
+class HandCheckedContextWriteError(Exception):
+    """results/hand_checked_sample_context.md could not be written.
+    A read-only labelling aid, never hand-edited -- like
+    HandCheckedJoinedWriteError's rationale for
+    hand_checked_joined.csv, a write failure here is always safe to
+    retry on a later run."""

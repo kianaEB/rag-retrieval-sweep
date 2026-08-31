@@ -92,3 +92,6 @@ output_path: results/groundedness.csv
 hand_checked_sample_path: results/hand_checked_sample.csv
 hand_checked_joined_path: results/hand_checked_joined.csv
 generated_answers_path: results/generated_answers.csv
+# Read-only labelling aid for the human doing the hand-labelling; no
+# code ever reads it back, and no Numeric_Claim ever cites it.
+hand_checked_context_path: results/hand_checked_sample_context.md

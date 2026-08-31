@@ -37,12 +37,21 @@ rag-retrieval-sweep/
 │   │                                  token count, so a Claim traces
 │   │                                  back to the text it was segmented
 │   │                                  from (groundedness-gate spec)
-│   └── hand_checked_sample.csv     # exported-then-re-imported
-│                                      hand-labelling sample, carrying
-│                                      the judge's verdict alongside the
-│                                      human hand label for the
-│                                      Agreement_Rate check
-│                                      (groundedness-gate spec)
+│   ├── hand_checked_sample.csv     # exported-then-re-imported
+│   │                                  hand-labelling sample, carrying
+│   │                                  the judge's verdict alongside the
+│   │                                  human hand label for the
+│   │                                  Agreement_Rate check
+│   │                                  (groundedness-gate spec)
+│   └── hand_checked_sample_context.md  # read-only labelling aid:
+│                                          query text + claim text +
+│                                          retrieved context per sampled
+│                                          row, excluding the judge's
+│                                          verdict/score/matched
+│                                          sentence and the generated
+│                                          answer; never cited by a
+│                                          Numeric_Claim
+│                                          (groundedness-gate spec)
 ├── src/               # loading, retrievers, chunking, metrics,
 │                      the sweep entry point
 ├── tests/            # pytest over metric functions and the data layer

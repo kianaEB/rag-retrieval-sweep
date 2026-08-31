@@ -37,6 +37,7 @@ from src.errors import (
     GeneratorModelLoadError,
     GroundednessConfigError,
     GroundednessReportWriteError,
+    HandCheckedContextWriteError,
     HandCheckedJoinedWriteError,
     HandCheckedSampleWriteError,
     JudgeModelLoadError,
@@ -49,11 +50,13 @@ from src.generated_answers_report import GeneratedAnswerRow, write_generated_ans
 from src.generator_model import GeneratorModel
 from src.groundedness_config import GroundednessConfig, load_groundedness_config
 from src.groundedness_report import GroundednessReportRow, write_groundedness_report
+from src.hand_checked_context import write_hand_checked_context
 from src.hand_checked_sample import (
     HandCheckedSampleRow,
     compute_agreement_rate,
     export_hand_checked_sample,
     join_hand_labels_with_verdicts,
+    read_hand_checked_sample_rows,
     read_hand_label_import,
     select_hand_checked_sample,
     write_hand_checked_joined,
@@ -342,7 +345,15 @@ def main(argv: Optional[List[str]] = None) -> int:
        `GeneratedAnswersWriteError`.
     9. `select_hand_checked_sample` + `export_hand_checked_sample` (a
        no-op if the file already carries hand labels), halting on
-       `HandCheckedSampleWriteError`.
+       `HandCheckedSampleWriteError`; then read the exported sample
+       back from disk (`read_hand_checked_sample_rows`, in its actual
+       stored row order -- the export can be a no-op, so this can
+       differ from this run's own in-memory selection) and write the
+       read-only labelling aid `results/hand_checked_sample_context.md`
+       (`write_hand_checked_context`: query text, claim text, and
+       Retrieved_Context per row, deliberately excluding the
+       Judge_Model's verdict/score/matched sentence and the
+       Generated_Answer), halting on `HandCheckedContextWriteError`.
     10. `read_hand_label_import` -- if non-`None`, build and write the
         joined rows via `join_hand_labels_with_verdicts` +
         `write_hand_checked_joined`, halting on
@@ -520,6 +531,25 @@ def main(argv: Optional[List[str]] = None) -> int:
     try:
         export_hand_checked_sample(hand_checked_rows, config.hand_checked_sample_path)
     except HandCheckedSampleWriteError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+
+    # Read the exported sample back from disk, in its actual stored
+    # row order -- export_hand_checked_sample is a no-op once the file
+    # already carries a non-blank hand_label (Requirement 10.7), so the
+    # file on disk can differ from hand_checked_rows above. The
+    # labelling aid must mirror "results/hand_checked_sample.csv, in
+    # that same order" exactly, which means reading it back rather than
+    # reusing the in-memory list.
+    on_disk_sample_rows = read_hand_checked_sample_rows(config.hand_checked_sample_path)
+    try:
+        write_hand_checked_context(
+            on_disk_sample_rows,
+            query_text_by_id=bundle.queries,
+            retrieved_context_by_query=retrieved_context_by_query,
+            output_path=config.hand_checked_context_path,
+        )
+    except HandCheckedContextWriteError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
 

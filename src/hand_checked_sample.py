@@ -62,6 +62,31 @@ class HandCheckedSampleRow:
     hand_label: str  # blank ("") until a human fills it in
 
 
+def read_hand_checked_sample_rows(path: Path) -> List[HandCheckedSampleRow]:
+    """Reads `path` (default results/hand_checked_sample.csv) back into
+    `HandCheckedSampleRow`s, in the exact row order the file is stored
+    in -- never re-sorted or re-derived from a fresh
+    `select_hand_checked_sample` draw. This matters specifically
+    because `export_hand_checked_sample` is a no-op once the file
+    already carries a non-blank `hand_label` (Requirement 10.7): the
+    file on disk can differ from whatever this run's own in-memory
+    selection computed, so a caller that needs "the rows of
+    `results/hand_checked_sample.csv`, in that same order" (e.g. the
+    labelling-context aid in `src.hand_checked_context`) must read them
+    back from the file itself, not from the in-memory list.
+    """
+    frame = pandas.read_csv(Path(path), dtype=str, keep_default_na=False)
+    return [
+        HandCheckedSampleRow(
+            query_id=str(record["query_id"]),
+            claim_index=int(record["claim_index"]),
+            claim_text=str(record["claim_text"]),
+            hand_label=str(record["hand_label"]),
+        )
+        for _, record in frame.iterrows()
+    ]
+
+
 def export_hand_checked_sample(
     rows: List[HandCheckedSampleRow], output_path: Path
 ) -> None:
