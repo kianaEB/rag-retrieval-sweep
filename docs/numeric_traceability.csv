@@ -51,3 +51,33 @@ readme-repro-version-torch,README.md,"Reproducing this sweep section, installed 
 readme-repro-version-numpy,README.md,"Reproducing this sweep section, installed versions",2.5.2,exact,run_config.json,installed_versions.numpy,copy
 readme-headline-confidence-level,README.md,"Headline finding paragraph, 95% CI",95,integer,run_config.json,significance.alpha,complement_percentage
 spec-threats-power-confidence-level,SPEC.md,"Threats to validity, Statistical power",95,integer,run_config.json,significance.alpha,complement_percentage
+groundedness-replay-top-k,SPEC.md,"Groundedness gate, Prompt and premise truncation",10,integer,run_config.json,groundedness.replay_top_k,copy
+groundedness-generation-subset-size,SPEC.md,"Groundedness gate, Generation and hand-checked sample sizes",30,integer,run_config.json,groundedness.generation_subset_size,copy
+groundedness-hand-checked-sample-size,SPEC.md,"Groundedness gate, Generation and hand-checked sample sizes",30,integer,run_config.json,groundedness.hand_checked_sample_size,copy
+groundedness-quarantine-threshold,SPEC.md,"Groundedness gate, Label mapping and score definition",0.50,2dp,run_config.json,groundedness.quarantine_threshold,copy
+groundedness-max-new-tokens,SPEC.md,"Groundedness gate, Generation degeneracy",128,integer,run_config.json,groundedness.max_new_tokens,copy
+groundedness-generator-max-input-tokens,SPEC.md,"Groundedness gate, Prompt and premise truncation",512,integer,run_config.json,groundedness.generator_max_input_tokens,copy
+groundedness-judge-max-input-tokens,SPEC.md,"Groundedness gate, Prompt and premise truncation",512,integer,run_config.json,groundedness.judge_max_input_tokens,copy
+groundedness-generator-truncated-count,SPEC.md,"Groundedness gate, Prompt and premise truncation",30,integer,run_config.json,groundedness.generator_prompt_truncation.truncated_count,copy
+groundedness-generator-truncation-total,SPEC.md,"Groundedness gate, Prompt and premise truncation",30,integer,run_config.json,groundedness.generator_prompt_truncation.total_items,copy
+groundedness-generator-mean-tokens-dropped,SPEC.md,"Groundedness gate, Prompt and premise truncation",3632,integer,run_config.json,groundedness.generator_prompt_truncation.tokens_dropped_mean_when_truncated,copy
+groundedness-judge-truncated-count,SPEC.md,"Groundedness gate, Prompt and premise truncation",0,integer,run_config.json,groundedness.judge_premise_truncation.truncated_count,copy
+groundedness-judge-truncation-total,SPEC.md,"Groundedness gate, Prompt and premise truncation",3090,integer,run_config.json,groundedness.judge_premise_truncation.total_items,copy
+groundedness-title-copy-fraction,SPEC.md,"Groundedness gate, Generation degeneracy",0.0333,4dp,groundedness.csv,claim_text==matched_sentence,copy
+groundedness-quarantine-count,SPEC.md,"Groundedness gate, Quarantine_Rate",11,integer,groundedness.csv,quarantine_decision=True.__count__,copy
+groundedness-quarantine-total,SPEC.md,"Groundedness gate, Quarantine_Rate",30,integer,groundedness.csv,all.__count__,copy
+groundedness-quarantine-rate,SPEC.md,"Groundedness gate, Quarantine_Rate",0.3667,4dp,groundedness.csv,"quarantine_decision=True.__count__;all.__count__",ratio
+groundedness-agreement-total,SPEC.md,"Groundedness gate, Agreement_Rate",30,integer,hand_checked_joined.csv,all.__count__,copy
+groundedness-agreement-rate,SPEC.md,"Groundedness gate, Agreement_Rate",0.2667,4dp,hand_checked_joined.csv,judge_verdict==hand_label,copy
+groundedness-disagree-judge-supported-hand-not,SPEC.md,"Groundedness gate, Agreement_Rate",16,integer,hand_checked_joined.csv,"judge_verdict=SUPPORTED,hand_label=NOT_SUPPORTED.__count__",copy
+groundedness-disagree-judge-not-hand-supported,SPEC.md,"Groundedness gate, Agreement_Rate",6,integer,hand_checked_joined.csv,"judge_verdict=NOT_SUPPORTED,hand_label=SUPPORTED.__count__",copy
+groundedness-partition-assertion-count,SPEC.md,"Groundedness gate, Agreement_Rate partitioned by declarative assertion vs. non-assertion",19,integer,hand_checked_joined.csv,is_declarative_assertion=True.__count__,copy
+groundedness-partition-assertion-agreement-rate,SPEC.md,"Groundedness gate, Agreement_Rate partitioned by declarative assertion vs. non-assertion",0.3684,4dp,hand_checked_joined.csv,"is_declarative_assertion=True,agrees=True.__count__;is_declarative_assertion=True.__count__",ratio
+groundedness-partition-assertion-agree-count,SPEC.md,"Groundedness gate, Agreement_Rate partitioned by declarative assertion vs. non-assertion",7,integer,hand_checked_joined.csv,"is_declarative_assertion=True,agrees=True.__count__",copy
+groundedness-partition-assertion-judge-sup-hand-not,SPEC.md,"Groundedness gate, Agreement_Rate partitioned by declarative assertion vs. non-assertion",6,integer,hand_checked_joined.csv,"is_declarative_assertion=True,judge_verdict=SUPPORTED,hand_label=NOT_SUPPORTED.__count__",copy
+groundedness-partition-assertion-judge-not-hand-sup,SPEC.md,"Groundedness gate, Agreement_Rate partitioned by declarative assertion vs. non-assertion",6,integer,hand_checked_joined.csv,"is_declarative_assertion=True,judge_verdict=NOT_SUPPORTED,hand_label=SUPPORTED.__count__",copy
+groundedness-partition-non-assertion-count,SPEC.md,"Groundedness gate, Agreement_Rate partitioned by declarative assertion vs. non-assertion",11,integer,hand_checked_joined.csv,is_declarative_assertion=False.__count__,copy
+groundedness-partition-non-assertion-agreement-rate,SPEC.md,"Groundedness gate, Agreement_Rate partitioned by declarative assertion vs. non-assertion",0.0909,4dp,hand_checked_joined.csv,"is_declarative_assertion=False,agrees=True.__count__;is_declarative_assertion=False.__count__",ratio
+groundedness-partition-non-assertion-judge-sup-count,SPEC.md,"Groundedness gate, Agreement_Rate partitioned by declarative assertion vs. non-assertion",10,integer,hand_checked_joined.csv,"is_declarative_assertion=False,judge_verdict=SUPPORTED.__count__",copy
+groundedness-partition-assertion-ci-lower,SPEC.md,"Groundedness gate, Agreement_Rate partitioned by declarative assertion vs. non-assertion",0.19,2dp,hand_checked_joined.csv,"is_declarative_assertion=True,agrees=True.__count__;is_declarative_assertion=True.__count__",wilson_ci_lower
+groundedness-partition-assertion-ci-upper,SPEC.md,"Groundedness gate, Agreement_Rate partitioned by declarative assertion vs. non-assertion",0.59,2dp,hand_checked_joined.csv,"is_declarative_assertion=True,agrees=True.__count__;is_declarative_assertion=True.__count__",wilson_ci_upper

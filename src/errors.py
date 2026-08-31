@@ -232,3 +232,12 @@ class HandCheckedContextWriteError(Exception):
     HandCheckedJoinedWriteError's rationale for
     hand_checked_joined.csv, a write failure here is always safe to
     retry on a later run."""
+
+
+class ClaimClassificationError(Exception):
+    """docs/claim_assertion_classification.csv is missing, cannot be
+    parsed, lacks a required column, or has no row for a
+    (query_id, claim_index) the Groundedness_Runner needs a
+    declarative-assertion classification for (used only for the
+    Agreement_Rate partition analysis in SPEC.md; never influences a
+    Groundedness_Verdict, judge_score, or Quarantine_Decision)."""

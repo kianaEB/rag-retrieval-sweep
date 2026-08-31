@@ -65,7 +65,16 @@ _ALLOWED_COMPUTATIONS: Sequence[str] = (
     "sum",
     "half_ci_width",
     "complement_percentage",
+    "wilson_ci_lower",
+    "wilson_ci_upper",
 )
+
+# z-score for a 95% Wilson score interval -- the same 95% confidence
+# level already used throughout this project (the nDCG@10 bootstrap CI,
+# configs/significance.yaml's alpha). Fixed here rather than threaded
+# through as a ledger-row parameter, since every confidence interval
+# in this repo uses the same 95% level.
+_WILSON_Z_95 = 1.959963984540054
 
 # The two non-numeric sentinels a CSV artifact cell (or a ledger row's
 # own source_fields column) may hold, mirroring src.report.MISSING
@@ -281,6 +290,20 @@ def apply_computation(computation: str, values: List[Union[float, str]]) -> Unio
       applies. Used for a stated confidence level (e.g. "95%" from a
       recorded `alpha` of `0.05`), never for a raw fraction that should
       be reported as-is.
+    - `"wilson_ci_lower"` / `"wilson_ci_upper"`: exactly 2 numeric
+      values, `[successes, total]`; returns the lower/upper bound of
+      the 95% Wilson score interval for a binomial proportion
+      `successes / total` (Agreement_Rate's assertion-partition
+      confidence interval -- SPEC.md's "Agreement_Rate, partitioned by
+      declarative assertion vs. non-assertion" section). The Wilson
+      interval, not a Wald/normal-approximation interval, because the
+      Wald interval is a poor approximation at small `total` and can
+      extend outside `[0, 1]`; Wilson stays well-behaved at n as small
+      as 11 or 19. Two separate enum members, not one computation
+      returning a pair, because `apply_computation`'s contract (like
+      every other computation here) is one row -> one scalar -> one
+      `round_half_up` comparison; the lower and upper bounds are two
+      separate Numeric_Claims, each with its own ledger row.
     """
     if computation not in _ALLOWED_COMPUTATIONS:
         raise VerificationSourceError(f"unrecognized computation: {computation!r}")
@@ -338,10 +361,31 @@ def apply_computation(computation: str, values: List[Union[float, str]]) -> Unio
         ci_upper, ci_lower = numeric_values
         return (ci_upper - ci_lower) / 2.0
 
-    # computation == "complement_percentage"
-    if len(numeric_values) != 1:
-        raise VerificationSourceError("'complement_percentage' requires exactly 1 value")
-    return (1.0 - numeric_values[0]) * 100.0
+    if computation == "complement_percentage":
+        if len(numeric_values) != 1:
+            raise VerificationSourceError("'complement_percentage' requires exactly 1 value")
+        return (1.0 - numeric_values[0]) * 100.0
+
+    # computation in ("wilson_ci_lower", "wilson_ci_upper")
+    if len(numeric_values) != 2:
+        raise VerificationSourceError(f"{computation!r} requires exactly 2 values: [successes, total]")
+    successes, total = numeric_values
+    if total <= 0:
+        raise VerificationSourceError(f"{computation!r}: total must be positive, got {total!r}")
+    if not (0.0 <= successes <= total):
+        raise VerificationSourceError(
+            f"{computation!r}: successes {successes!r} must be within [0, total={total!r}]"
+        )
+    z = _WILSON_Z_95
+    p_hat = successes / total
+    denominator = 1.0 + (z * z) / total
+    center = (p_hat + (z * z) / (2.0 * total)) / denominator
+    half_width = (
+        z * ((p_hat * (1.0 - p_hat) / total) + (z * z) / (4.0 * total * total)) ** 0.5
+    ) / denominator
+    if computation == "wilson_ci_lower":
+        return center - half_width
+    return center + half_width
 
 
 def load_ledger(path: Path) -> List[TraceabilityRow]:

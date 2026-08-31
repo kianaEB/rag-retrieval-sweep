@@ -512,7 +512,7 @@ Bash / POSIX shell or Python one-liners per shell-conventions.md.
     (Requirement 9.2).
   - _Requirements: 3.1, 3.2, 4.4, 5.1, 5.2, 6.1, 6.2, 6.9, 7.1, 7.2, 7.3, 8.1, 8.2, 8.4, 8.5, 9.1, 9.2, 9.3, 10.1, 10.3, 10.4, 10.7_
 
-- [ ] 15. Author `SPEC.md`'s "## Groundedness gate" section and extend `docs/numeric_traceability.csv`
+- [x] 15. Author `SPEC.md`'s "## Groundedness gate" section and extend `docs/numeric_traceability.csv`
   - Prerequisite: a human has hand-labelled every row of
     `results/hand_checked_sample.csv` (from Task 14) and a subsequent
     rerun of `python -m src.groundedness_runner --config
@@ -561,7 +561,7 @@ Bash / POSIX shell or Python one-liners per shell-conventions.md.
     prints `ok`.
   - _Requirements: 1.1, 6.2, 6.3, 6.6, 6.9, 6.10, 6.11, 7.2, 7.3, 11.1, 11.2, 11.3, 11.4, 11.5, 11.6_
 
-- [ ] 16. Run the Verification_Pass for real and fix any mismatch
+- [x] 16. Run the Verification_Pass for real and fix any mismatch
   - Run `python -m src.verify_writeup_numbers --repo-root .` against
     the fully updated `docs/numeric_traceability.csv` (Task 15) and
     the real committed `results/groundedness.csv` and

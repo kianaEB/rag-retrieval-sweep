@@ -555,7 +555,7 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     hand_labels = read_hand_label_import(config.hand_checked_sample_path, hand_checked_sample_ids)
     if hand_labels is not None:
-        joined_rows = join_hand_labels_with_verdicts(judge_verdicts, hand_labels)
+        joined_rows = join_hand_labels_with_verdicts(judge_verdicts, hand_labels, claim_text_by_id)
         try:
             write_hand_checked_joined(joined_rows, config.hand_checked_joined_path)
         except HandCheckedJoinedWriteError as exc:

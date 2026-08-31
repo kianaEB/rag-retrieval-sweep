@@ -29,6 +29,11 @@ from typing import Dict, List, Optional, Tuple
 
 import pandas
 
+from src.claim_assertion_classification import (
+    DEFAULT_CLASSIFICATION_PATH,
+    load_claim_assertion_classification,
+    lookup_classification,
+)
 from src.errors import HandCheckedJoinedWriteError, HandCheckedSampleWriteError
 from src.report import _atomic_write_text
 
@@ -191,25 +196,99 @@ class HandCheckedJoinedRow:
     Agreement_Rate can be resolved as a single-artifact aggregate at
     verification time without ever exposing the judge's verdict in the
     file a human actually labels from (results/hand_checked_sample.csv,
-    Requirement 10.8)."""
+    Requirement 10.8).
+
+    `claim_text` and `is_declarative_assertion` are a later addition,
+    beyond the original Requirement 10 schema: SPEC.md's Agreement_Rate
+    discussion partitions the Hand_Checked_Sample into declarative
+    assertions and non-assertions because a single pooled 0.2667
+    conflates two different disagreement mechanisms -- the Judge_Model
+    finding textual entailment on a non-assertion Claim (a copied
+    title, a bare noun phrase) the human reviewer additionally declined
+    to call SUPPORTED because it isn't a declarative assertion at all,
+    versus a genuine miss on a real assertion.
+
+    `is_declarative_assertion` is read from the committed, hand-audited
+    `docs/claim_assertion_classification.csv` (see
+    `src.claim_assertion_classification`), not computed by any
+    mechanical heuristic -- an earlier marker-word heuristic
+    (`src/claim_classifier.py`, since removed) matched a fixed word
+    list (is/are/was/has/...) rather than actually detecting a finite
+    main verb, and misclassified 7 of the 30 Claims as non-assertions
+    (e.g. "Sildenafil improves ...", "CD11b+ monocytes abrogate ...").
+    The committed file is a grammatical fact about each Claim's
+    committed `claim_text` -- anyone can audit any row against
+    `results/groundedness.csv` without a human reviewer or a re-run,
+    which is what distinguishes it from `hand_label` even though
+    neither one is mechanically re-derived.
+
+    Recording `is_declarative_assertion` per row here, in the one
+    artifact that already carries both `judge_verdict` and
+    `hand_label`, is what lets the partitioned Agreement_Rate numbers in
+    SPEC.md be checked against a committed artifact via
+    `src.verify_writeup_numbers`'s existing `row_selector.field`
+    mechanism, rather than only being reproducible by re-running a
+    separate analysis script.
+
+    `agrees` (`judge_verdict == hand_label`, computed once here) exists
+    so a per-partition Agreement_Rate can be resolved as a single
+    `ratio` computation over two `__count__` references within one
+    ledger row (`agrees=True.__count__` over
+    `is_declarative_assertion=<True|False>` filtered rows, divided by
+    that partition's `__count__` total) -- `src.verify_writeup_numbers`
+    already supports arbitrary `key=value` filters and the `__count__`
+    field sentinel, but its `ratio` computation takes exactly the two
+    values a `source_fields` list resolves, not a sum of sub-counts
+    computed inside the same row. Pre-computing `agrees` here keeps
+    that resolution a single `row_selector.field` lookup instead of a
+    multi-step derivation the traceability mechanism cannot express in
+    one row."""
 
     query_id: str
     claim_index: int
     judge_verdict: str
     hand_label: str
+    claim_text: str
+    is_declarative_assertion: bool
+    agrees: bool
 
 
 def join_hand_labels_with_verdicts(
-    judge_verdicts: Dict[ClaimId, str], hand_labels: Dict[ClaimId, str]
+    judge_verdicts: Dict[ClaimId, str],
+    hand_labels: Dict[ClaimId, str],
+    claim_text_by_id: Dict[ClaimId, str],
+    classification_path: Path = DEFAULT_CLASSIFICATION_PATH,
 ) -> List[HandCheckedJoinedRow]:
     """Builds one HandCheckedJoinedRow per key of `hand_labels` (every
     Hand_Checked_Sample Claim with a non-blank Hand_Label), pairing it
-    with that Claim's judge_verdicts[key] -- assumes
-    read_hand_label_import already verified full coverage, so every
-    key of hand_labels is guaranteed present in judge_verdicts."""
+    with that Claim's judge_verdicts[key] and claim_text_by_id[key] --
+    assumes read_hand_label_import already verified full coverage, so
+    every key of hand_labels is guaranteed present in both
+    judge_verdicts and claim_text_by_id.
+
+    `is_declarative_assertion` is read from the committed
+    `docs/claim_assertion_classification.csv` (default
+    `classification_path`) via
+    `src.claim_assertion_classification.load_claim_assertion_classification`,
+    never computed by a mechanical heuristic -- see
+    `HandCheckedJoinedRow`'s docstring for why. Raises
+    `ClaimClassificationError` (propagated from
+    `load_claim_assertion_classification`/`lookup_classification`) if
+    the file is missing, malformed, or has no row for one of
+    `hand_labels`' keys.
+    """
+    classification = load_claim_assertion_classification(classification_path)
     return [
         HandCheckedJoinedRow(
-            query_id=qid, claim_index=idx, judge_verdict=judge_verdicts[(qid, idx)], hand_label=label
+            query_id=qid,
+            claim_index=idx,
+            judge_verdict=judge_verdicts[(qid, idx)],
+            hand_label=label,
+            claim_text=claim_text_by_id[(qid, idx)],
+            is_declarative_assertion=lookup_classification(
+                classification, (qid, idx), classification_path
+            ),
+            agrees=(judge_verdicts[(qid, idx)] == label),
         )
         for (qid, idx), label in sorted(hand_labels.items())
     ]

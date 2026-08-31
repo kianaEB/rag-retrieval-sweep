@@ -73,7 +73,7 @@
       "tokens_dropped_mean_when_truncated": 0.0
     },
     "quarantine_threshold": 0.5,
-    "hand_checked_sample_size": 50,
+    "hand_checked_sample_size": 30,
     "hand_checked_sample_seed": 777
   }
 }

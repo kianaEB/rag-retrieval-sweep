@@ -1,0 +1,31 @@
+query_id,claim_index,judge_verdict,hand_label,claim_text,is_declarative_assertion,agrees
+1086,0,NOT_SUPPORTED,SUPPORTED,Sildenafil improves erectile function in men with sexual dysfunction associated with the use of selective and nonselective serotonin reuptake inhibitor antidepressants.,True,False
+1088,0,SUPPORTED,NOT_SUPPORTED,DNA damage and error-prone repair in myeloid leukemia.,False,False
+1089,0,SUPPORTED,NOT_SUPPORTED,Smc5/6 engagment drives the activation of the Mms21 SUMO ligase MmS21 by ATP-dependent remolding.,True,False
+1175,0,SUPPORTED,NOT_SUPPORTED,cathelicidins and proBac7.,False,False
+1272,0,NOT_SUPPORTED,SUPPORTED,"Using flash photolysis, we demonstrated that glutamate release is dependent on the levels of calcium in astrocytes.",True,False
+1273,0,SUPPORTED,NOT_SUPPORTED,CHD4 is a RanGTP-dependent microtubule-associated protein that stabilizes microtubulars and regulates spindle assembly.,True,False
+1278,0,SUPPORTED,NOT_SUPPORTED,Aliskiren and losartan in type 2 diabetes and nephropathy.,False,False
+1280,0,SUPPORTED,NOT_SUPPORTED,The ureABIEFGH gene cluster is required for the formation of UreD-urease complexes.,True,False
+1292,0,SUPPORTED,NOT_SUPPORTED,HNF4A gene mutations.,False,False
+132,0,NOT_SUPPORTED,NOT_SUPPORTED,Aspirin inhibits the production of prostaglandin E2 by inhibiting the expression of 15-hydroxyprostaglin dehydrogenase.,True,True
+1320,0,SUPPORTED,NOT_SUPPORTED,Transplantation of human glial progenitor cells into lineage-specific stem/progenitores of another germ layer may be a viable way to convert somatic cells into iPSCs.,True,False
+1344,0,SUPPORTED,NOT_SUPPORTED,aging process by inhibiting tumor growth and apoptosis.,False,False
+1368,0,SUPPORTED,NOT_SUPPORTED,Vitamin D deficiency affecting the term of delivery.,False,False
+1370,0,NOT_SUPPORTED,NOT_SUPPORTED,infant,False,True
+230,0,NOT_SUPPORTED,SUPPORTED,The aldehyde dehydrogenase deficiency mutation may be a surrogate for measuring alcohol consumption and may be an important risk factor for hypertension.,True,False
+233,0,SUPPORTED,SUPPORTED,X-Y genes are expressed in brain in a sex-specific manner.,True,True
+312,0,NOT_SUPPORTED,NOT_SUPPORTED,De novo assembly of sequence data has more specific contigs than unassembled sequence data.,True,True
+439,0,SUPPORTED,NOT_SUPPORTED,Wnt5a functions in planar cell polarity regulation in mice,True,False
+491,0,SUPPORTED,NOT_SUPPORTED,mutation carriers,False,False
+54,0,NOT_SUPPORTED,NOT_SUPPORTED,AMPK activation inhibits Janus kinase 1 signaling and suppresses inflammation-related fibrosis in the lungs.,True,True
+552,0,NOT_SUPPORTED,SUPPORTED,IgA autoantibodies to transglutaminase 2 are markedly expanded within the duodenal mucosa in individuals with active celiac disease.,True,False
+598,0,SUPPORTED,SUPPORTED,Primary HPV DNA screening with cytology triage was more sensitive than conventional cytological screening.,True,True
+692,0,SUPPORTED,NOT_SUPPORTED,Leuko-increased blood is a risk factor for the development of sporadic CJD.,True,False
+728,0,NOT_SUPPORTED,NOT_SUPPORTED,Ly6c(hi) monocytes have a lower inflammatory capacity than Ly6C(lo) moncells.,True,True
+743,0,NOT_SUPPORTED,SUPPORTED,Previous use of antibiotics decreases the risk of developing a first-time acute myocardial infarction.,True,False
+783,0,SUPPORTED,SUPPORTED,CD11b+ monocytes abrogate Th17 CD4+ T cell-mediated experimental autoimmune myocarditis.,True,True
+808,0,NOT_SUPPORTED,SUPPORTED,The lysosomal cysteine proteases cathepsins B and L are involved in the degradation of beta-amyloid precursor proteins.,True,False
+823,0,SUPPORTED,NOT_SUPPORTED,N348I mutation in the RT connection domain in clinical isolates.,False,False
+957,0,SUPPORTED,NOT_SUPPORTED,Molecular mechanisms of podocyte morphology and their regulation of the expression of podocalyxin.,False,False
+967,0,SUPPORTED,NOT_SUPPORTED,The role of the N-WASP–Arp2/3 complex pathway and cofilin in invadopodium formation in metastatic carcinoma cells.,False,False

@@ -16,10 +16,20 @@ rag-retrieval-sweep/
 │                      the repo root.
 ├── docs/
 │   ├── PROJECT_BRIEF.md
-│   └── numeric_traceability.csv    # Numeric_Claim ledger: every number
-│                                     in README.md/SPEC.md mapped to the
-│                                     committed artifact it was read from
-│                                     (repo-writeup spec)
+│   ├── numeric_traceability.csv    # Numeric_Claim ledger: every number
+│   │                                 in README.md/SPEC.md mapped to the
+│   │                                 committed artifact it was read from
+│   │                                 (repo-writeup spec)
+│   └── claim_assertion_classification.csv  # committed, mechanically
+│                                              auditable (query_id,
+│                                              claim_index) ->
+│                                              is_declarative_assertion
+│                                              classification for the
+│                                              30 Generation_Subset
+│                                              Claims, used only for the
+│                                              Agreement_Rate partition
+│                                              analysis in SPEC.md
+│                                              (groundedness-gate spec)
 ├── results/
 │   ├── sweep.csv                   # one row per configuration: metrics,
 │   │                                 timing, failure bucket
