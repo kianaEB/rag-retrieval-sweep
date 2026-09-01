@@ -1,56 +1,141 @@
 claim_id,document,location,stated_value,stated_precision,source_artifact,source_fields,computation
-readme-headline-mean-diff,README.md,Headline finding paragraph,-0.0068,4dp,significance.csv,metric=ndcg_at_10.mean_diff,copy
-readme-headline-ci-lower,README.md,Headline finding paragraph,-0.0451,4dp,significance.csv,metric=ndcg_at_10.ci_lower,copy
-readme-headline-ci-upper,README.md,Headline finding paragraph,0.0318,4dp,significance.csv,metric=ndcg_at_10.ci_upper,copy
-readme-headline-p-adjusted,README.md,Headline finding paragraph,0.7275,4dp,significance.csv,metric=ndcg_at_10.p_value_adjusted,copy
-readme-cost-bm25-index-time,README.md,Engineering cost paragraph,0.66,2dp,sweep.csv,"run_id=bm25__whole_document,k=1.index_time",copy
-readme-cost-dense-index-time,README.md,Engineering cost paragraph,182.79,2dp,sweep.csv,"run_id=all-MiniLM-L6-v2__whole_document,k=1.index_time",copy
-readme-cost-index-time-ratio,README.md,Engineering cost paragraph,275.21x,2dp,sweep.csv,"run_id=all-MiniLM-L6-v2__whole_document,k=1.index_time;run_id=bm25__whole_document,k=1.index_time",ratio
-readme-table-recall1-bm25,README.md,"Results table, recall@1 row",0.5075,4dp,sweep.csv,"run_id=bm25__whole_document,k=1.recall_at_k",copy
-readme-table-recall1-delta,README.md,"Results table, recall@1 row",-0.0252,4dp,significance.csv,metric=recall_at_1.mean_diff,copy
-readme-table-recall5-bm25,README.md,"Results table, recall@5 row",0.7284,4dp,sweep.csv,"run_id=bm25__whole_document,k=5.recall_at_k",copy
-readme-table-recall5-delta,README.md,"Results table, recall@5 row",0.0095,4dp,significance.csv,metric=recall_at_5.mean_diff,copy
-readme-table-recall10-bm25,README.md,"Results table, recall@10 row",0.7740,4dp,sweep.csv,"run_id=bm25__whole_document,k=10.recall_at_k",copy
-readme-table-recall10-delta,README.md,"Results table, recall@10 row",0.0093,4dp,significance.csv,metric=recall_at_10.mean_diff,copy
-readme-table-recall20-bm25,README.md,"Results table, recall@20 row",0.8323,4dp,sweep.csv,"run_id=bm25__whole_document,k=20.recall_at_k",copy
-readme-table-recall20-delta,README.md,"Results table, recall@20 row",0.0051,4dp,significance.csv,metric=recall_at_20.mean_diff,copy
-readme-table-ndcg-bm25,README.md,"Results table, nDCG@10 row",0.6519,4dp,sweep.csv,"run_id=bm25__whole_document,k=1.ndcg_at_10",copy
-readme-table-ndcg-delta,README.md,"Results table, nDCG@10 row",-0.0068,4dp,significance.csv,metric=ndcg_at_10.mean_diff,copy
-readme-table-ndcg-p-adjusted,README.md,"Results table, nDCG@10 row",0.7275,4dp,significance.csv,metric=ndcg_at_10.p_value_adjusted,copy
-readme-table-mrr-bm25,README.md,"Results table, MRR@10 row",0.6186,4dp,sweep.csv,"run_id=bm25__whole_document,k=1.mrr_at_10",copy
-readme-table-mrr-delta,README.md,"Results table, MRR@10 row",-0.0139,4dp,significance.csv,metric=mrr_at_10.mean_diff,copy
 readme-corpus-num-documents,README.md,Corpus section,5183,integer,run_config.json,corpus_load_report.num_documents,copy
 readme-corpus-num-queries,README.md,Corpus section,300,integer,run_config.json,corpus_load_report.num_queries,copy
 readme-corpus-num-qrel-pairs,README.md,Corpus section,339,integer,run_config.json,corpus_load_report.num_qrel_pairs,copy
-readme-repro-combined-time,README.md,Reproducing this sweep section,194.14,2dp,sweep.csv,"run_id=bm25__whole_document,k=1.index_time;run_id=bm25__whole_document,k=1.query_latency;run_id=all-MiniLM-L6-v2__whole_document,k=1.index_time;run_id=all-MiniLM-L6-v2__whole_document,k=1.query_latency",sum
+readme-table-recall1-bm25,README.md,"Results table, recall@1 row (bm25)",0.5075,4dp,sweep.csv,"run_id=bm25__whole_document,k=1.recall_at_k",copy
+readme-table-recall5-bm25,README.md,"Results table, recall@5 row (bm25)",0.7284,4dp,sweep.csv,"run_id=bm25__whole_document,k=5.recall_at_k",copy
+readme-table-recall10-bm25,README.md,"Results table, recall@10 row (bm25)",0.7740,4dp,sweep.csv,"run_id=bm25__whole_document,k=10.recall_at_k",copy
+readme-table-recall20-bm25,README.md,"Results table, recall@20 row (bm25)",0.8323,4dp,sweep.csv,"run_id=bm25__whole_document,k=20.recall_at_k",copy
+readme-table-ndcg-bm25,README.md,"Results table, nDCG@10 row (bm25)",0.6519,4dp,sweep.csv,"run_id=bm25__whole_document,k=1.ndcg_at_10",copy
+readme-table-mrr-bm25,README.md,"Results table, MRR@10 row (bm25)",0.6186,4dp,sweep.csv,"run_id=bm25__whole_document,k=1.mrr_at_10",copy
+readme-table-recall1-minilm,README.md,"Results table, recall@1 row (minilm)",0.4823,4dp,sweep.csv,"run_id=all-MiniLM-L6-v2__whole_document,k=1.recall_at_k",copy
+readme-table-recall5-minilm,README.md,"Results table, recall@5 row (minilm)",0.7379,4dp,sweep.csv,"run_id=all-MiniLM-L6-v2__whole_document,k=5.recall_at_k",copy
+readme-table-recall10-minilm,README.md,"Results table, recall@10 row (minilm)",0.7833,4dp,sweep.csv,"run_id=all-MiniLM-L6-v2__whole_document,k=10.recall_at_k",copy
+readme-table-recall20-minilm,README.md,"Results table, recall@20 row (minilm)",0.8373,4dp,sweep.csv,"run_id=all-MiniLM-L6-v2__whole_document,k=20.recall_at_k",copy
+readme-table-ndcg-minilm,README.md,"Results table, nDCG@10 row (minilm)",0.6451,4dp,sweep.csv,"run_id=all-MiniLM-L6-v2__whole_document,k=1.ndcg_at_10",copy
+readme-table-mrr-minilm,README.md,"Results table, MRR@10 row (minilm)",0.6047,4dp,sweep.csv,"run_id=all-MiniLM-L6-v2__whole_document,k=1.mrr_at_10",copy
+readme-table-recall1-bge,README.md,"Results table, recall@1 row (bge)",0.5787,4dp,sweep.csv,"run_id=bge-small-en-v1.5__whole_document,k=1.recall_at_k",copy
+readme-table-recall5-bge,README.md,"Results table, recall@5 row (bge)",0.7653,4dp,sweep.csv,"run_id=bge-small-en-v1.5__whole_document,k=5.recall_at_k",copy
+readme-table-recall10-bge,README.md,"Results table, recall@10 row (bge)",0.8452,4dp,sweep.csv,"run_id=bge-small-en-v1.5__whole_document,k=10.recall_at_k",copy
+readme-table-recall20-bge,README.md,"Results table, recall@20 row (bge)",0.8753,4dp,sweep.csv,"run_id=bge-small-en-v1.5__whole_document,k=20.recall_at_k",copy
+readme-table-ndcg-bge,README.md,"Results table, nDCG@10 row (bge)",0.7200,4dp,sweep.csv,"run_id=bge-small-en-v1.5__whole_document,k=1.ndcg_at_10",copy
+readme-table-mrr-bge,README.md,"Results table, MRR@10 row (bge)",0.6845,4dp,sweep.csv,"run_id=bge-small-en-v1.5__whole_document,k=1.mrr_at_10",copy
+readme-table-ndcg-delta-minilm-fw,README.md,"Results table, ndcg row (minilm/fw)",0.0225,4dp,significance.csv,"run_id=all-MiniLM-L6-v2__fixed_window,metric=ndcg_at_10.mean_diff",copy
+readme-table-ndcg-p-adjusted-minilm-fw,README.md,"Results table, nDCG@10 row (minilm/fw)",0.7082,4dp,significance.csv,"run_id=all-MiniLM-L6-v2__fixed_window,metric=ndcg_at_10.p_value_adjusted",copy
+readme-table-recall1-delta-minilm-fw,README.md,"Results table, recall1 row (minilm/fw)",0.0104,4dp,significance.csv,"run_id=all-MiniLM-L6-v2__fixed_window,metric=recall_at_1.mean_diff",copy
+readme-table-recall5-delta-minilm-fw,README.md,"Results table, recall5 row (minilm/fw)",0.0177,4dp,significance.csv,"run_id=all-MiniLM-L6-v2__fixed_window,metric=recall_at_5.mean_diff",copy
+readme-table-recall10-delta-minilm-fw,README.md,"Results table, recall10 row (minilm/fw)",0.0482,4dp,significance.csv,"run_id=all-MiniLM-L6-v2__fixed_window,metric=recall_at_10.mean_diff",copy
+readme-table-recall20-delta-minilm-fw,README.md,"Results table, recall20 row (minilm/fw)",0.0217,4dp,significance.csv,"run_id=all-MiniLM-L6-v2__fixed_window,metric=recall_at_20.mean_diff",copy
+readme-table-mrr-delta-minilm-fw,README.md,"Results table, mrr row (minilm/fw)",0.0139,4dp,significance.csv,"run_id=all-MiniLM-L6-v2__fixed_window,metric=mrr_at_10.mean_diff",copy
+readme-table-ndcg-delta-minilm-sw,README.md,"Results table, ndcg row (minilm/sw)",0.0108,4dp,significance.csv,"run_id=all-MiniLM-L6-v2__sentence_window,metric=ndcg_at_10.mean_diff",copy
+readme-table-ndcg-p-adjusted-minilm-sw,README.md,"Results table, nDCG@10 row (minilm/sw)",1.0000,4dp,significance.csv,"run_id=all-MiniLM-L6-v2__sentence_window,metric=ndcg_at_10.p_value_adjusted",copy
+readme-table-recall1-delta-minilm-sw,README.md,"Results table, recall1 row (minilm/sw)",0.0008,4dp,significance.csv,"run_id=all-MiniLM-L6-v2__sentence_window,metric=recall_at_1.mean_diff",copy
+readme-table-recall5-delta-minilm-sw,README.md,"Results table, recall5 row (minilm/sw)",0.0053,4dp,significance.csv,"run_id=all-MiniLM-L6-v2__sentence_window,metric=recall_at_5.mean_diff",copy
+readme-table-recall10-delta-minilm-sw,README.md,"Results table, recall10 row (minilm/sw)",0.0257,4dp,significance.csv,"run_id=all-MiniLM-L6-v2__sentence_window,metric=recall_at_10.mean_diff",copy
+readme-table-recall20-delta-minilm-sw,README.md,"Results table, recall20 row (minilm/sw)",0.0274,4dp,significance.csv,"run_id=all-MiniLM-L6-v2__sentence_window,metric=recall_at_20.mean_diff",copy
+readme-table-mrr-delta-minilm-sw,README.md,"Results table, mrr row (minilm/sw)",0.0061,4dp,significance.csv,"run_id=all-MiniLM-L6-v2__sentence_window,metric=mrr_at_10.mean_diff",copy
+readme-table-ndcg-delta-minilm-wd,README.md,"Results table, ndcg row (minilm/wd)",-0.0068,4dp,significance.csv,"run_id=all-MiniLM-L6-v2__whole_document,metric=ndcg_at_10.mean_diff",copy
+readme-table-ndcg-p-adjusted-minilm-wd,README.md,"Results table, nDCG@10 row (minilm/wd)",1.0000,4dp,significance.csv,"run_id=all-MiniLM-L6-v2__whole_document,metric=ndcg_at_10.p_value_adjusted",copy
+readme-table-recall1-delta-minilm-wd,README.md,"Results table, recall1 row (minilm/wd)",-0.0252,4dp,significance.csv,"run_id=all-MiniLM-L6-v2__whole_document,metric=recall_at_1.mean_diff",copy
+readme-table-recall5-delta-minilm-wd,README.md,"Results table, recall5 row (minilm/wd)",0.0095,4dp,significance.csv,"run_id=all-MiniLM-L6-v2__whole_document,metric=recall_at_5.mean_diff",copy
+readme-table-recall10-delta-minilm-wd,README.md,"Results table, recall10 row (minilm/wd)",0.0093,4dp,significance.csv,"run_id=all-MiniLM-L6-v2__whole_document,metric=recall_at_10.mean_diff",copy
+readme-table-recall20-delta-minilm-wd,README.md,"Results table, recall20 row (minilm/wd)",0.0051,4dp,significance.csv,"run_id=all-MiniLM-L6-v2__whole_document,metric=recall_at_20.mean_diff",copy
+readme-table-mrr-delta-minilm-wd,README.md,"Results table, mrr row (minilm/wd)",-0.0139,4dp,significance.csv,"run_id=all-MiniLM-L6-v2__whole_document,metric=mrr_at_10.mean_diff",copy
+readme-table-ndcg-delta-bge-fw,README.md,"Results table, ndcg row (bge/fw)",0.0587,4dp,significance.csv,"run_id=bge-small-en-v1.5__fixed_window,metric=ndcg_at_10.mean_diff",copy
+readme-table-ndcg-p-adjusted-bge-fw,README.md,"Results table, nDCG@10 row (bge/fw)",0.0130,4dp,significance.csv,"run_id=bge-small-en-v1.5__fixed_window,metric=ndcg_at_10.p_value_adjusted",copy
+readme-table-recall1-delta-bge-fw,README.md,"Results table, recall1 row (bge/fw)",0.0590,4dp,significance.csv,"run_id=bge-small-en-v1.5__fixed_window,metric=recall_at_1.mean_diff",copy
+readme-table-recall5-delta-bge-fw,README.md,"Results table, recall5 row (bge/fw)",0.0527,4dp,significance.csv,"run_id=bge-small-en-v1.5__fixed_window,metric=recall_at_5.mean_diff",copy
+readme-table-recall10-delta-bge-fw,README.md,"Results table, recall10 row (bge/fw)",0.0562,4dp,significance.csv,"run_id=bge-small-en-v1.5__fixed_window,metric=recall_at_10.mean_diff",copy
+readme-table-recall20-delta-bge-fw,README.md,"Results table, recall20 row (bge/fw)",0.0481,4dp,significance.csv,"run_id=bge-small-en-v1.5__fixed_window,metric=recall_at_20.mean_diff",copy
+readme-table-mrr-delta-bge-fw,README.md,"Results table, mrr row (bge/fw)",0.0589,4dp,significance.csv,"run_id=bge-small-en-v1.5__fixed_window,metric=mrr_at_10.mean_diff",copy
+readme-table-ndcg-delta-bge-sw,README.md,"Results table, ndcg row (bge/sw)",0.0624,4dp,significance.csv,"run_id=bge-small-en-v1.5__sentence_window,metric=ndcg_at_10.mean_diff",copy
+readme-table-ndcg-p-adjusted-bge-sw,README.md,"Results table, nDCG@10 row (bge/sw)",0.0078,4dp,significance.csv,"run_id=bge-small-en-v1.5__sentence_window,metric=ndcg_at_10.p_value_adjusted",copy
+readme-table-recall1-delta-bge-sw,README.md,"Results table, recall1 row (bge/sw)",0.0623,4dp,significance.csv,"run_id=bge-small-en-v1.5__sentence_window,metric=recall_at_1.mean_diff",copy
+readme-table-recall5-delta-bge-sw,README.md,"Results table, recall5 row (bge/sw)",0.0426,4dp,significance.csv,"run_id=bge-small-en-v1.5__sentence_window,metric=recall_at_5.mean_diff",copy
+readme-table-recall10-delta-bge-sw,README.md,"Results table, recall10 row (bge/sw)",0.0689,4dp,significance.csv,"run_id=bge-small-en-v1.5__sentence_window,metric=recall_at_10.mean_diff",copy
+readme-table-recall20-delta-bge-sw,README.md,"Results table, recall20 row (bge/sw)",0.0474,4dp,significance.csv,"run_id=bge-small-en-v1.5__sentence_window,metric=recall_at_20.mean_diff",copy
+readme-table-mrr-delta-bge-sw,README.md,"Results table, mrr row (bge/sw)",0.0582,4dp,significance.csv,"run_id=bge-small-en-v1.5__sentence_window,metric=mrr_at_10.mean_diff",copy
+readme-table-ndcg-delta-bge-wd,README.md,"Results table, ndcg row (bge/wd)",0.0681,4dp,significance.csv,"run_id=bge-small-en-v1.5__whole_document,metric=ndcg_at_10.mean_diff",copy
+readme-table-ndcg-p-adjusted-bge-wd,README.md,"Results table, nDCG@10 row (bge/wd)",0.0042,4dp,significance.csv,"run_id=bge-small-en-v1.5__whole_document,metric=ndcg_at_10.p_value_adjusted",copy
+readme-table-recall1-delta-bge-wd,README.md,"Results table, recall1 row (bge/wd)",0.0712,4dp,significance.csv,"run_id=bge-small-en-v1.5__whole_document,metric=recall_at_1.mean_diff",copy
+readme-table-recall5-delta-bge-wd,README.md,"Results table, recall5 row (bge/wd)",0.0368,4dp,significance.csv,"run_id=bge-small-en-v1.5__whole_document,metric=recall_at_5.mean_diff",copy
+readme-table-recall10-delta-bge-wd,README.md,"Results table, recall10 row (bge/wd)",0.0712,4dp,significance.csv,"run_id=bge-small-en-v1.5__whole_document,metric=recall_at_10.mean_diff",copy
+readme-table-recall20-delta-bge-wd,README.md,"Results table, recall20 row (bge/wd)",0.0431,4dp,significance.csv,"run_id=bge-small-en-v1.5__whole_document,metric=recall_at_20.mean_diff",copy
+readme-table-mrr-delta-bge-wd,README.md,"Results table, mrr row (bge/wd)",0.0659,4dp,significance.csv,"run_id=bge-small-en-v1.5__whole_document,metric=mrr_at_10.mean_diff",copy
+readme-table-ndcg-delta-bm25-fw,README.md,"Results table, ndcg row (bm25/fw)",-0.0131,4dp,significance.csv,"run_id=bm25__fixed_window,metric=ndcg_at_10.mean_diff",copy
+readme-table-ndcg-p-adjusted-bm25-fw,README.md,"Results table, nDCG@10 row (bm25/fw)",0.4792,4dp,significance.csv,"run_id=bm25__fixed_window,metric=ndcg_at_10.p_value_adjusted",copy
+readme-table-recall1-delta-bm25-fw,README.md,"Results table, recall1 row (bm25/fw)",-0.0133,4dp,significance.csv,"run_id=bm25__fixed_window,metric=recall_at_1.mean_diff",copy
+readme-table-recall5-delta-bm25-fw,README.md,"Results table, recall5 row (bm25/fw)",-0.0204,4dp,significance.csv,"run_id=bm25__fixed_window,metric=recall_at_5.mean_diff",copy
+readme-table-recall10-delta-bm25-fw,README.md,"Results table, recall10 row (bm25/fw)",-0.0050,4dp,significance.csv,"run_id=bm25__fixed_window,metric=recall_at_10.mean_diff",copy
+readme-table-recall20-delta-bm25-fw,README.md,"Results table, recall20 row (bm25/fw)",-0.0158,4dp,significance.csv,"run_id=bm25__fixed_window,metric=recall_at_20.mean_diff",copy
+readme-table-mrr-delta-bm25-fw,README.md,"Results table, mrr row (bm25/fw)",-0.0151,4dp,significance.csv,"run_id=bm25__fixed_window,metric=mrr_at_10.mean_diff",copy
+readme-table-ndcg-delta-bm25-sw,README.md,"Results table, ndcg row (bm25/sw)",-0.0417,4dp,significance.csv,"run_id=bm25__sentence_window,metric=ndcg_at_10.mean_diff",copy
+readme-table-ndcg-p-adjusted-bm25-sw,README.md,"Results table, nDCG@10 row (bm25/sw)",0.0032,4dp,significance.csv,"run_id=bm25__sentence_window,metric=ndcg_at_10.p_value_adjusted",copy
+readme-table-recall1-delta-bm25-sw,README.md,"Results table, recall1 row (bm25/sw)",-0.0467,4dp,significance.csv,"run_id=bm25__sentence_window,metric=recall_at_1.mean_diff",copy
+readme-table-recall5-delta-bm25-sw,README.md,"Results table, recall5 row (bm25/sw)",-0.0484,4dp,significance.csv,"run_id=bm25__sentence_window,metric=recall_at_5.mean_diff",copy
+readme-table-recall10-delta-bm25-sw,README.md,"Results table, recall10 row (bm25/sw)",-0.0177,4dp,significance.csv,"run_id=bm25__sentence_window,metric=recall_at_10.mean_diff",copy
+readme-table-recall20-delta-bm25-sw,README.md,"Results table, recall20 row (bm25/sw)",-0.0246,4dp,significance.csv,"run_id=bm25__sentence_window,metric=recall_at_20.mean_diff",copy
+readme-table-mrr-delta-bm25-sw,README.md,"Results table, mrr row (bm25/sw)",-0.0476,4dp,significance.csv,"run_id=bm25__sentence_window,metric=mrr_at_10.mean_diff",copy
+readme-headline-mean-diff-minilm,README.md,Headline finding paragraph (minilm),-0.0068,4dp,significance.csv,"run_id=all-MiniLM-L6-v2__whole_document,metric=ndcg_at_10.mean_diff",copy
+readme-headline-ci-lower-minilm,README.md,Headline finding paragraph (minilm),-0.0449,4dp,significance.csv,"run_id=all-MiniLM-L6-v2__whole_document,metric=ndcg_at_10.ci_lower",copy
+readme-headline-ci-upper-minilm,README.md,Headline finding paragraph (minilm),0.0307,4dp,significance.csv,"run_id=all-MiniLM-L6-v2__whole_document,metric=ndcg_at_10.ci_upper",copy
+readme-headline-p-adjusted-minilm,README.md,Headline finding paragraph (minilm),1.0000,4dp,significance.csv,"run_id=all-MiniLM-L6-v2__whole_document,metric=ndcg_at_10.p_value_adjusted",copy
+readme-headline-mean-diff-bge,README.md,Headline finding paragraph (bge),0.0681,4dp,significance.csv,"run_id=bge-small-en-v1.5__whole_document,metric=ndcg_at_10.mean_diff",copy
+readme-headline-ci-lower-bge,README.md,Headline finding paragraph (bge),0.0292,4dp,significance.csv,"run_id=bge-small-en-v1.5__whole_document,metric=ndcg_at_10.ci_lower",copy
+readme-headline-ci-upper-bge,README.md,Headline finding paragraph (bge),0.1069,4dp,significance.csv,"run_id=bge-small-en-v1.5__whole_document,metric=ndcg_at_10.ci_upper",copy
+readme-headline-p-adjusted-bge,README.md,Headline finding paragraph (bge),0.0042,4dp,significance.csv,"run_id=bge-small-en-v1.5__whole_document,metric=ndcg_at_10.p_value_adjusted",copy
+readme-cost-bm25-index-time,README.md,Engineering cost paragraph,1.05,2dp,sweep.csv,"run_id=bm25__whole_document,k=1.index_time",copy
+readme-cost-minilm-index-time,README.md,Engineering cost paragraph,234.67,2dp,sweep.csv,"run_id=all-MiniLM-L6-v2__whole_document,k=1.index_time",copy
+readme-cost-bge-index-time,README.md,Engineering cost paragraph,764.80,2dp,sweep.csv,"run_id=bge-small-en-v1.5__whole_document,k=1.index_time",copy
+readme-cost-minilm-bm25-ratio,README.md,Engineering cost paragraph,224.46x,2dp,sweep.csv,"run_id=all-MiniLM-L6-v2__whole_document,k=1.index_time;run_id=bm25__whole_document,k=1.index_time",ratio
+readme-cost-bge-bm25-ratio,README.md,Engineering cost paragraph,731.55x,2dp,sweep.csv,"run_id=bge-small-en-v1.5__whole_document,k=1.index_time;run_id=bm25__whole_document,k=1.index_time",ratio
+readme-repro-combined-time,README.md,Reproducing this sweep section,1014.07,2dp,sweep.csv,"run_id=bm25__whole_document,k=1.index_time;run_id=bm25__whole_document,k=1.query_latency;run_id=all-MiniLM-L6-v2__whole_document,k=1.index_time;run_id=all-MiniLM-L6-v2__whole_document,k=1.query_latency;run_id=bge-small-en-v1.5__whole_document,k=1.index_time;run_id=bge-small-en-v1.5__whole_document,k=1.query_latency",sum
+readme-repro-version-beir,README.md,"Reproducing this sweep section, installed versions",2.2.0,exact,run_config.json,installed_versions.beir,copy
+readme-repro-version-rank-bm25,README.md,"Reproducing this sweep section, installed versions",0.2.2,exact,run_config.json,installed_versions.rank_bm25,copy
+readme-repro-version-sentence_transformers,README.md,"Reproducing this sweep section, installed versions",6.0.0,exact,run_config.json,installed_versions.sentence-transformers,copy
+readme-repro-version-torch,README.md,"Reproducing this sweep section, installed versions",2.13.0,exact,run_config.json,installed_versions.torch,copy
+readme-repro-version-numpy,README.md,"Reproducing this sweep section, installed versions",2.5.2,exact,run_config.json,installed_versions.numpy,copy
+readme-headline-confidence-level,README.md,"Headline finding paragraph, 95% CI",95,integer,run_config.json,significance.alpha,complement_percentage
+spec-threats-power-confidence-level,SPEC.md,"Threats to validity, Statistical power",95,integer,run_config.json,significance.alpha,complement_percentage
 spec-design-cutoffs-1,SPEC.md,"Design summary, Sweep grid",1,integer,run_config.json,sweep_config.cutoffs[0],copy
 spec-design-cutoffs-5,SPEC.md,"Design summary, Sweep grid",5,integer,run_config.json,sweep_config.cutoffs[1],copy
 spec-design-cutoffs-10,SPEC.md,"Design summary, Sweep grid",10,integer,run_config.json,sweep_config.cutoffs[2],copy
 spec-design-cutoffs-20,SPEC.md,"Design summary, Sweep grid",20,integer,run_config.json,sweep_config.cutoffs[3],copy
 spec-design-bm25-k1,SPEC.md,"Design summary, Sweep grid",1.50,2dp,run_config.json,sweep_config.retrievers[0].k1,copy
 spec-design-bm25-b,SPEC.md,"Design summary, Sweep grid",0.75,2dp,run_config.json,sweep_config.retrievers[0].b,copy
+spec-design-fixed-window-size,SPEC.md,"Design summary, Sweep grid",200,integer,run_config.json,sweep_config.chunking_strategies[1].window_size,copy
+spec-design-fixed-window-stride,SPEC.md,"Design summary, Sweep grid",50,integer,run_config.json,sweep_config.chunking_strategies[1].stride,copy
+spec-design-sentence-window-sentences,SPEC.md,"Design summary, Sweep grid",3,integer,run_config.json,sweep_config.chunking_strategies[2].sentences_per_chunk,copy
+spec-design-sentence-window-max-tokens,SPEC.md,"Design summary, Sweep grid",256,integer,run_config.json,sweep_config.chunking_strategies[2].max_chunk_tokens,copy
+spec-design-bge-model-name,SPEC.md,"Design summary, Sweep grid",BAAI/bge-small-en-v1.5,exact,run_config.json,sweep_config.retrievers[2].model_name,copy
 spec-design-resample-count,SPEC.md,"Design summary, Statistical scheme",10000,integer,run_config.json,significance.resample_count,copy
 spec-design-permutation-count,SPEC.md,"Design summary, Statistical scheme",10000,integer,run_config.json,significance.permutation_count,copy
 spec-design-bootstrap-seed,SPEC.md,"Design summary, Statistical scheme",20240,integer,run_config.json,significance.bootstrap_seed,copy
+spec-design-num-runs,SPEC.md,"Design summary, Sweep grid",36,integer,sweep.csv,all.__count__,copy
+spec-design-num-comparisons,SPEC.md,"Design summary, Statistical scheme",48,integer,significance.csv,all.__count__,copy
 spec-threats-qrels-ratio,SPEC.md,"Threats to validity, Sparse qrels",1.13,2dp,run_config.json,corpus_load_report.num_qrel_pairs;corpus_load_report.num_queries,ratio
 spec-threats-qrels-num-pairs,SPEC.md,"Threats to validity, Sparse qrels",339,integer,run_config.json,corpus_load_report.num_qrel_pairs,copy
 spec-threats-qrels-num-queries,SPEC.md,"Threats to validity, Sparse qrels",300,integer,run_config.json,corpus_load_report.num_queries,copy
 spec-threats-bm25-k1,SPEC.md,"Threats to validity, BM25 preprocessing sensitivity",1.50,2dp,run_config.json,sweep_config.retrievers[0].k1,copy
 spec-threats-bm25-b,SPEC.md,"Threats to validity, BM25 preprocessing sensitivity",0.75,2dp,run_config.json,sweep_config.retrievers[0].b,copy
-spec-threats-power-half-ci-width,SPEC.md,"Threats to validity, Statistical power",0.0384,4dp,significance.csv,metric=ndcg_at_10.ci_upper;metric=ndcg_at_10.ci_lower,half_ci_width
-spec-threats-bm25-query-latency,SPEC.md,"Threats to validity, BM25 query latency",7.50,2dp,sweep.csv,"run_id=bm25__whole_document,k=1.query_latency",copy
-spec-threats-token-fraction,SPEC.md,"Threats to validity, Token-length truncation",71.02%,percentage:2dp,token_length_report.json,fraction_exceeding,percentage
+spec-threats-power-half-ci-width-minilm,SPEC.md,"Threats to validity, Statistical power (minilm)",0.0378,4dp,significance.csv,"run_id=all-MiniLM-L6-v2__whole_document,metric=ndcg_at_10.ci_upper;run_id=all-MiniLM-L6-v2__whole_document,metric=ndcg_at_10.ci_lower",half_ci_width
+spec-threats-power-half-ci-width-bge,SPEC.md,"Threats to validity, Statistical power (bge)",0.0389,4dp,significance.csv,"run_id=bge-small-en-v1.5__whole_document,metric=ndcg_at_10.ci_upper;run_id=bge-small-en-v1.5__whole_document,metric=ndcg_at_10.ci_lower",half_ci_width
+spec-threats-bm25-query-latency,SPEC.md,"Threats to validity, BM25 query latency",8.41,2dp,sweep.csv,"run_id=bm25__whole_document,k=1.query_latency",copy
 spec-threats-latency-num-queries,SPEC.md,"Threats to validity, BM25 query latency",300,integer,run_config.json,corpus_load_report.num_queries,copy
-spec-threats-token-max-seq-length,SPEC.md,"Threats to validity, Token-length truncation",256,integer,token_length_report.json,max_sequence_length,copy
-readme-headline-token-fraction,README.md,"Headline finding section, confound sentence",71.02%,percentage:2dp,token_length_report.json,fraction_exceeding,percentage
-readme-headline-token-max-seq-length,README.md,"Headline finding section, confound sentence",256,integer,token_length_report.json,max_sequence_length,copy
-readme-repro-version-beir,README.md,"Reproducing this sweep section, installed versions",2.2.0,exact,run_config.json,installed_versions.beir,copy
-readme-repro-version-rank-bm25,README.md,"Reproducing this sweep section, installed versions",0.2.2,exact,run_config.json,installed_versions.rank_bm25,copy
-readme-repro-version-sentence-transformers,README.md,"Reproducing this sweep section, installed versions",6.0.0,exact,run_config.json,installed_versions.sentence-transformers,copy
-readme-repro-version-torch,README.md,"Reproducing this sweep section, installed versions",2.13.0,exact,run_config.json,installed_versions.torch,copy
-readme-repro-version-numpy,README.md,"Reproducing this sweep section, installed versions",2.5.2,exact,run_config.json,installed_versions.numpy,copy
-readme-headline-confidence-level,README.md,"Headline finding paragraph, 95% CI",95,integer,run_config.json,significance.alpha,complement_percentage
-spec-threats-power-confidence-level,SPEC.md,"Threats to validity, Statistical power",95,integer,run_config.json,significance.alpha,complement_percentage
+spec-threats-token-fraction-wd-minilm,SPEC.md,"Threats to validity, Token-length truncation",71.02%,percentage:2dp,token_length_report.json,cells[0].fraction_exceeding,percentage
+spec-threats-token-max-seq-length-wd-minilm,SPEC.md,"Threats to validity, Token-length truncation",256,integer,token_length_report.json,cells[0].max_sequence_length,copy
+spec-threats-token-fraction-wd-bge,SPEC.md,"Threats to validity, Token-length truncation",8.78%,percentage:2dp,token_length_report.json,cells[1].fraction_exceeding,percentage
+spec-threats-token-max-seq-length-wd-bge,SPEC.md,"Threats to validity, Token-length truncation",512,integer,token_length_report.json,cells[1].max_sequence_length,copy
+spec-threats-token-fraction-fw-minilm,SPEC.md,"Threats to validity, Token-length truncation",0.00%,percentage:2dp,token_length_report.json,cells[2].fraction_exceeding,percentage
+spec-threats-token-max-seq-length-fw-minilm,SPEC.md,"Threats to validity, Token-length truncation",256,integer,token_length_report.json,cells[2].max_sequence_length,copy
+spec-threats-token-fraction-fw-bge,SPEC.md,"Threats to validity, Token-length truncation",0.00%,percentage:2dp,token_length_report.json,cells[3].fraction_exceeding,percentage
+spec-threats-token-max-seq-length-fw-bge,SPEC.md,"Threats to validity, Token-length truncation",512,integer,token_length_report.json,cells[3].max_sequence_length,copy
+spec-threats-token-fraction-sw-minilm,SPEC.md,"Threats to validity, Token-length truncation",0.06%,percentage:2dp,token_length_report.json,cells[4].fraction_exceeding,percentage
+spec-threats-token-max-seq-length-sw-minilm,SPEC.md,"Threats to validity, Token-length truncation",256,integer,token_length_report.json,cells[4].max_sequence_length,copy
+spec-threats-token-fraction-sw-bge,SPEC.md,"Threats to validity, Token-length truncation",0.00%,percentage:2dp,token_length_report.json,cells[5].fraction_exceeding,percentage
+spec-threats-token-max-seq-length-sw-bge,SPEC.md,"Threats to validity, Token-length truncation",512,integer,token_length_report.json,cells[5].max_sequence_length,copy
+readme-headline-token-fraction,README.md,"Headline finding section, confound sentence",71.02%,percentage:2dp,token_length_report.json,cells[0].fraction_exceeding,percentage
+readme-headline-token-max-seq-length,README.md,"Headline finding section, confound sentence",256,integer,token_length_report.json,cells[0].max_sequence_length,copy
 groundedness-replay-top-k,SPEC.md,"Groundedness gate, Prompt and premise truncation",10,integer,run_config.json,groundedness.replay_top_k,copy
 groundedness-generation-subset-size,SPEC.md,"Groundedness gate, Generation and hand-checked sample sizes",30,integer,run_config.json,groundedness.generation_subset_size,copy
 groundedness-hand-checked-sample-size,SPEC.md,"Groundedness gate, Generation and hand-checked sample sizes",30,integer,run_config.json,groundedness.hand_checked_sample_size,copy
@@ -66,7 +151,7 @@ groundedness-judge-truncation-total,SPEC.md,"Groundedness gate, Prompt and premi
 groundedness-title-copy-fraction,SPEC.md,"Groundedness gate, Generation degeneracy",0.0333,4dp,groundedness.csv,claim_text==matched_sentence,copy
 groundedness-quarantine-count,SPEC.md,"Groundedness gate, Quarantine_Rate",11,integer,groundedness.csv,quarantine_decision=True.__count__,copy
 groundedness-quarantine-total,SPEC.md,"Groundedness gate, Quarantine_Rate",30,integer,groundedness.csv,all.__count__,copy
-groundedness-quarantine-rate,SPEC.md,"Groundedness gate, Quarantine_Rate",0.3667,4dp,groundedness.csv,"quarantine_decision=True.__count__;all.__count__",ratio
+groundedness-quarantine-rate,SPEC.md,"Groundedness gate, Quarantine_Rate",0.3667,4dp,groundedness.csv,quarantine_decision=True.__count__;all.__count__,ratio
 groundedness-agreement-total,SPEC.md,"Groundedness gate, Agreement_Rate",30,integer,hand_checked_joined.csv,all.__count__,copy
 groundedness-agreement-rate,SPEC.md,"Groundedness gate, Agreement_Rate",0.2667,4dp,hand_checked_joined.csv,judge_verdict==hand_label,copy
 groundedness-disagree-judge-supported-hand-not,SPEC.md,"Groundedness gate, Agreement_Rate",16,integer,hand_checked_joined.csv,"judge_verdict=SUPPORTED,hand_label=NOT_SUPPORTED.__count__",copy

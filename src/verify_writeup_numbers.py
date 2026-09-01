@@ -582,16 +582,21 @@ def _resolve_json_path(data: dict, reference: str, source_artifact: str) -> Unio
 
 
 def _resolve_top_level_key(data: dict, reference: str, source_artifact: str) -> Union[float, str]:
-    """Reads the named top-level key directly from `data` (used only
-    for `token_length_report.json`, which has no nesting)."""
-    if reference not in data:
-        raise VerificationSourceError(f"key {reference!r} not found in {source_artifact}")
-    value = data[reference]
-    if isinstance(value, (dict, list)):
-        raise VerificationSourceError(
-            f"key {reference!r} in {source_artifact} resolves to a non-scalar value"
-        )
-    return value
+    """Resolves `reference` against `data` (`token_length_report.json`).
+
+    Delegates to `_resolve_json_path` -- the same dotted-path-plus-
+    `[index]` resolver `run_config.json` already uses -- rather than a
+    bespoke top-level-only lookup: for a plain key with no `.` or `[]`
+    (e.g. `"fraction_exceeding"`, the pre-existing top-level fields
+    that describe the `whole_document` x `all-MiniLM-L6-v2` cell
+    specifically), this resolves identically to a direct dict lookup.
+    For a nested reference into the full-grid-chunking-sweep spec's
+    6-cell `"cells"` list (e.g. `"cells[1].fraction_exceeding"`), the
+    same call now also reaches any of the 6 per-`(Chunking_Strategy,
+    dense model)` cells -- needed to make every cell's own number
+    traceable, not only the two cells whose values happen to be
+    duplicated at the top level."""
+    return _resolve_json_path(data, reference, source_artifact)
 
 
 def _resolve_column_equality_reference(

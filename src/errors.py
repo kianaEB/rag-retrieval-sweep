@@ -241,3 +241,24 @@ class ClaimClassificationError(Exception):
     declarative-assertion classification for (used only for the
     Agreement_Rate partition analysis in SPEC.md; never influences a
     Groundedness_Verdict, judge_score, or Quarantine_Decision)."""
+
+
+# --- full-grid-chunking-sweep spec: extends the hierarchy above ---
+
+
+class ChunkingError(Exception):
+    """A Chunker produced zero Chunks for a document. Raised by
+    build_chunk_corpus, naming the offending doc_id and the chunker's
+    strategy_name, before any index is built for that Chunking_Strategy
+    (Requirement 2.6). Also reused, wrapped as FrozenRetrieverConfigError,
+    if retrieval_replay.build_frozen_retriever's WholeDocumentChunker
+    application ever fails."""
+
+
+class ChunkingConfigError(ConfigError):
+    """A Chunking_Strategy entry in configs/sweep.yaml declares an
+    invalid field: fixed_window's window_size/stride or
+    sentence_window's sentences_per_chunk/max_chunk_tokens must each be
+    a positive integer (Requirement 7.6). A ConfigError subclass,
+    mirroring UnsupportedPreprocessingError's relationship to
+    ConfigError."""

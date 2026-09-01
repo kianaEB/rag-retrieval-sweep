@@ -1,15 +1,26 @@
-# Sweep_Config for session 1 (rag-retrieval-sweep).
+# Sweep_Config for the full-grid-chunking-sweep spec (rag-retrieval-sweep).
 #
 # Declares, as data, the retriever x top-k x chunking-strategy grid
 # described in `docs/PROJECT_BRIEF.md` and
-# `.kiro/specs/session-1-baseline-sweep/design.md`. BM25 preprocessing
+# `.kiro/specs/full-grid-chunking-sweep/design.md`. BM25 preprocessing
 # (tokenizer, stopwords, stemming, case-handling) is fixed here, once,
 # before any sweep result exists, and is never adjusted after seeing
-# results (see tech.md).
+# results (see tech.md). `chunking_strategies`' numeric parameters
+# (`window_size`/`stride`, `sentences_per_chunk`/`max_chunk_tokens`) are
+# likewise fixed here, once, before any full-grid result exists.
 
 seed: 42
 
-chunking_strategy: whole_document
+chunking_strategies:
+  - name: whole_document
+
+  - name: fixed_window
+    window_size: 200
+    stride: 50
+
+  - name: sentence_window
+    sentences_per_chunk: 3
+    max_chunk_tokens: 256
 
 cutoffs: [1, 5, 10, 20]
 
@@ -26,6 +37,11 @@ retrievers:
   - name: all-MiniLM-L6-v2
     type: dense
     model_name: sentence-transformers/all-MiniLM-L6-v2
+    batch_size: 32
+
+  - name: bge-small-en-v1.5
+    type: dense
+    model_name: BAAI/bge-small-en-v1.5
     batch_size: 32
 
 data_dir: data

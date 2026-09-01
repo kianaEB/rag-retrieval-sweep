@@ -53,15 +53,29 @@ import sys
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple, Union
 
+from src.chunking import (
+    Chunker,
+    FixedWindowChunker,
+    SentenceWindowChunker,
+    WholeDocumentChunker,
+    aggregate_to_document_ranked_list,
+    build_chunk_corpus,
+    load_chunking_tokenizer,
+)
 from src.config import (
     BM25RetrieverConfig,
+    ChunkingStrategyConfig,
     DenseRetrieverConfig,
+    FixedWindowChunkingConfig,
+    SentenceWindowChunkingConfig,
     SUPPORTED_CUTOFFS,
     SweepConfig,
+    WholeDocumentChunkingConfig,
     load_sweep_config,
 )
 from src.corpus_loader import CorpusBundle, configure_caches, load_scifact
 from src.errors import (
+    ChunkingError,
     ConfigError,
     CorpusLoadError,
     CorpusValidationError,
@@ -91,6 +105,13 @@ RetrieverConfig = Union[BM25RetrieverConfig, DenseRetrieverConfig]
 # (Task 9) supplies a factory that returns `StubRetriever` instances.
 RetrieverFactory = Callable[[RetrieverConfig], Retriever]
 
+# The only construction path for a Chunker inside `run_sweep`, mirroring
+# `RetrieverFactory` above (design.md's "chunker-factory seam" section).
+# `main()` supplies `make_default_chunker_factory(...)`;
+# `tests/test_orchestration.py` (Task 17) supplies a factory that
+# returns `StubChunker` instances.
+ChunkerFactory = Callable[[ChunkingStrategyConfig], Chunker]
+
 # Default Sweep_Config path (Requirement 10.1): applied when `--config`
 # is not passed on the command line.
 DEFAULT_CONFIG_PATH = Path("configs/sweep.yaml")
@@ -99,72 +120,66 @@ def run_sweep(
     config: SweepConfig,
     bundle: CorpusBundle,
     retriever_factory: RetrieverFactory,
+    chunker_factory: ChunkerFactory,
 ) -> Tuple[List[SweepReportRow], List[PerQueryReportRow], bool]:
-    """Runs the retriever loop, metric computation, and row assembly.
+    """Runs the chunk-once/retrieve-once/aggregate-once loop, metric
+    computation, and row assembly, over the full 9-combination grid
+    (3 `config.chunking_strategies` x 3 `config.retrievers`).
 
-    For each retriever declared in `config.retrievers`, this calls
+    **Outer loop over `config.chunking_strategies`** (3 iterations):
+    for each declared Chunking_Strategy, this calls
+    `chunker_factory(chunking_config)` exactly once and
+    `build_chunk_corpus(chunker, bundle.corpus)` exactly once, caching
+    the resulting chunk corpus in a local variable for the duration of
+    that iteration -- never rebuilt per retriever. If
+    `build_chunk_corpus` raises `ChunkingError` (a Chunker produced
+    zero Chunks for some document), every retriever's 4 rows for this
+    Chunking_Strategy (12 rows total) get the `MISSING` sentinel, and
+    the run proceeds to the next Chunking_Strategy -- the other two
+    strategies' 24 rows are unaffected (Requirement 2.6).
+
+    **Inner loop over `config.retrievers`** (3 iterations each, 9
+    combinations total): for each retriever, this calls
     `retriever_factory(retriever_config)` exactly once, then
-    `build_index` exactly once, then `retrieve_all` exactly once, at
-    `top_k = max(config.cutoffs)` (Deepest_Cutoff) -- never more than
-    one `build_index` call and one `retrieve_all` call per retriever,
-    regardless of how many cutoffs are declared (Requirement 5.1,
-    5.2, 5.5). The single `Ranked_List` per query that `retrieve_all`
-    returns is sliced to each declared cutoff `k` to compute that
-    row's `recall_at_k`; `ndcg_at_10` and `mrr_at_10` are each computed
-    once per retriever, at a fixed cutoff of 10, and copied unchanged
-    into all of that retriever's rows (Requirement 6.6).
+    `build_index(chunk_corpus)` exactly once, then `retrieve_all(
+    bundle.queries)` exactly once -- never more than one `build_index`
+    call and one `retrieve_all` call per (retriever, Chunking_Strategy)
+    combination, regardless of how many cutoffs are declared
+    (Requirement 6.1, 6.2, 6.3, 6.5). `retrieve_all` returns a single
+    generator yielding one `(query_id, ChunkScores)` pair at a time, at
+    Full_Chunk_Depth; this loop consumes that one generator, applying
+    `aggregate_to_document_ranked_list` per query to reduce each
+    query's `ChunkScores` to a `Document_Ranked_List` -- Max_Aggregation
+    (Requirement 5.1, 5.6), never a second retrieval call. Reading
+    `retriever.last_query_latency` only after the generator is fully
+    exhausted matches the streaming contract's own timing guarantee.
+
+    Everything from there on -- `ndcg_at_10`/`mrr_at_10` computed once
+    per run_id at a fixed cutoff of 10, `recall_at_k` sliced per
+    declared cutoff, the `MetricComputationError`-equivalent recovery
+    tiers, and the `PerQueryReportRow` emission gate -- is unchanged
+    from session-1/significance-testing, now operating on
+    `document_ranked_lists` (this function's own local dict, built from
+    `aggregate_to_document_ranked_list`'s output) instead of a
+    retriever's own direct `ranked_lists`. `run_id =
+    f"{retriever_config.name}__{chunking_config.name}"` for every row.
 
     `num_queries_total`/`num_queries_scored` are computed once, from
-    `bundle.queries`/`bundle.qrels` alone, before the retriever loop
-    runs (Requirement 6.7) -- if zero queries qualify (no loaded query
-    has a Qrels-judged relevant document), this raises
-    `ZeroQualifyingQueriesError` before any index build, since every
-    retriever would hit the identical zero-denominator condition.
-
-    A retriever whose `build_index`/`retrieve_all` call raises does
-    not halt the run: that retriever's `run_id` gets all of its rows
-    written with the `MISSING` ("NA") sentinel for `index_time`,
-    `query_latency`, `recall_at_k`, `ndcg_at_10`, and `mrr_at_10`, and
-    the loop proceeds to the next retriever (Requirement 7.6, 7.8,
-    10.4). Similarly, a failure computing `ndcg_at_10`/`mrr_at_10`
-    marks only those two cells `MISSING` for that retriever's rows
-    without affecting `recall_at_k` or timing, and a failure computing
-    `recall_at_k` for one cutoff marks only that row's `recall_at_k`
-    cell `MISSING` without affecting the other cutoffs.
+    `bundle.queries`/`bundle.qrels` alone, before either loop runs
+    (Requirement 6.7 restated) -- if zero queries qualify, this raises
+    `ZeroQualifyingQueriesError` before any chunk corpus is built.
 
     Returns `(rows, per_query_rows, all_succeeded)`: `rows` always has
-    exactly `len(config.retrievers) * len(config.cutoffs)` entries,
-    regardless of any individual failure (Requirement 7.1, 7.2);
+    exactly `len(config.chunking_strategies) * len(config.retrievers) *
+    len(config.cutoffs)` entries, regardless of any individual failure
+    (Requirement 7.1 restated for the 9-combination grid);
     `all_succeeded` is `True` iff no row carries a `MISSING` marker in
     any column.
-
-    `per_query_rows` (significance-testing spec, Requirement 1) is
-    built from the exact same `per_query_ndcg`/`per_query_mrr`/
-    per-cutoff `per_query_recall` dictionaries this function already
-    computes on its way to each `SweepReportRow`'s mean -- no new
-    retriever call, no recomputation from the corpus. One
-    `PerQueryReportRow` is appended per (run_id, query_id), wide on
-    cutoff, for every retriever whose index build, retrieval, and every
-    one of `ndcg_at_10`/`mrr_at_10`/`recall_at_1`/`recall_at_5`/
-    `recall_at_10`/`recall_at_20` all computed without raising --
-    `PerQueryReportRow` has no missing-value sentinel (unlike
-    `SweepReportRow`'s `MISSING`), so a retriever that failed outright,
-    or whose recall/nDCG/MRR computation failed for even one cutoff,
-    contributes no per-query rows for that run_id. Per-query row
-    emission additionally requires that `config.cutoffs`, as a set,
-    equals exactly `{1, 5, 10, 20}` (`SUPPORTED_CUTOFFS`) -- the only
-    cutoff set `load_sweep_config` ever admits in production -- because
-    `PerQueryReportRow`'s schema is wide on exactly those four fixed
-    columns (Requirement 1.3, 1.4); a `SweepConfig` built directly with
-    a different cutoff set (as in `tests/test_orchestration.py`'s
-    orchestration-mechanics test) yields no per-query rows rather than
-    a wide row with a fabricated or truncated cutoff value.
     """
     deepest_cutoff = max(config.cutoffs)
     emit_per_query_rows = set(config.cutoffs) == set(SUPPORTED_CUTOFFS)
 
-    # Computed once, from corpus/qrels data alone -- never per-retriever
-    # (Requirement 6.7).
+    # Computed once, from corpus/qrels data alone -- never per-combination.
     num_queries_total, num_queries_scored = scored_query_count(
         bundle.queries.keys(), bundle.qrels
     )
@@ -172,165 +187,244 @@ def run_sweep(
         raise ZeroQualifyingQueriesError(
             "no loaded query has a Qrels-judged relevant document; every "
             "retriever would hit the same zero-denominator condition, so "
-            "the run halts here, before any index build (Requirements "
-            "6.1, 6.2, 6.3, 10.4)"
+            "the run halts here, before any chunk corpus is built "
+            "(Requirements 6.1, 6.2, 6.3, 10.4)"
         )
 
     rows: List[SweepReportRow] = []
     per_query_rows: List[PerQueryReportRow] = []
     all_succeeded = True
 
-    for retriever_config in config.retrievers:
-        # Same run_id iff same retriever + chunking strategy (Requirement
-        # 7.4); with exactly one chunking strategy declared in session 1,
-        # this is equivalent to retriever identity. Computed before the
-        # try block: run_id itself never fails, and every row of this
-        # iteration -- including an all-MISSING row on total failure --
-        # needs it.
-        run_id = f"{retriever_config.name}__{config.chunking_strategy}"
-
+    for chunking_config in config.chunking_strategies:
         try:
-            # The only construction path for a retriever (Requirement
-            # 12.1, 12.4): never `BM25Retriever(...)`/`DenseRetriever(...)`
-            # called directly here. Construction is inside this try block
-            # so a retriever's own __init__ failure (e.g. ModelLoadError)
-            # degrades only this run_id's rows, the same as a
-            # build_index/retrieve_all failure.
-            retriever = retriever_factory(retriever_config)
-            index_time = retriever.build_index(bundle.corpus)
-            ranked_lists, query_latency = retriever.retrieve_all(
-                bundle.queries, top_k=deepest_cutoff
-            )
-        except Exception:
-            # RetrievalError-equivalent: this run_id's rows all get
-            # MISSING for every metric/timing cell; the run proceeds to
-            # the next retriever rather than halting (Requirement 7.6,
-            # 7.8, 10.4).
+            chunker = chunker_factory(chunking_config)
+            chunk_corpus = build_chunk_corpus(chunker, bundle.corpus)
+        except ChunkingError:
+            # New failure tier (full-grid-chunking-sweep spec): a
+            # chunk-corpus build failure is scoped to every run_id
+            # sharing this chunking_config -- all 3 retrievers' 4 rows
+            # each (12 rows) get MISSING, the same smallest-affected-
+            # unit principle session-1 already applies to a single
+            # retriever's build_index/retrieve_all failure, generalized
+            # to this new per-strategy failure boundary (Requirement
+            # 2.6). The other 2 chunking strategies' 24 rows are
+            # unaffected and the run proceeds.
             all_succeeded = False
+            for retriever_config in config.retrievers:
+                run_id = f"{retriever_config.name}__{chunking_config.name}"
+                for k in config.cutoffs:
+                    rows.append(
+                        SweepReportRow(
+                            run_id=run_id,
+                            retriever=retriever_config.name,
+                            chunking_strategy=chunking_config.name,
+                            k=k,
+                            recall_at_k=MISSING,
+                            ndcg_at_10=MISSING,
+                            mrr_at_10=MISSING,
+                            index_time=MISSING,
+                            query_latency=MISSING,
+                            num_queries_total=num_queries_total,
+                            num_queries_scored=num_queries_scored,
+                        )
+                    )
+            continue
+
+        for retriever_config in config.retrievers:
+            # Same run_id iff same retriever + Chunking_Strategy
+            # (Requirement 7.4-equivalent). Computed before the try
+            # block: run_id itself never fails, and every row of this
+            # iteration -- including an all-MISSING row on total
+            # failure -- needs it.
+            run_id = f"{retriever_config.name}__{chunking_config.name}"
+
+            try:
+                # The only construction path for a retriever
+                # (Requirement 12.1, 12.4): never
+                # `BM25Retriever(...)`/`DenseRetriever(...)` called
+                # directly here. Construction is inside this try block
+                # so a retriever's own __init__ failure (e.g.
+                # ModelLoadError) degrades only this run_id's rows, the
+                # same as a build_index/retrieve_all failure.
+                retriever = retriever_factory(retriever_config)
+                index_time = retriever.build_index(chunk_corpus)
+                document_ranked_lists: Dict[str, List[str]] = {}
+                for qid, chunk_scores in retriever.retrieve_all(bundle.queries):
+                    document_ranked_lists[qid] = aggregate_to_document_ranked_list(
+                        chunk_scores
+                    )
+                query_latency = retriever.last_query_latency
+            except Exception:
+                # RetrievalError-equivalent: this run_id's rows all get
+                # MISSING for every metric/timing cell; the run
+                # proceeds to the next retriever rather than halting
+                # (Requirement 7.6, 7.8, 10.4).
+                all_succeeded = False
+                for k in config.cutoffs:
+                    rows.append(
+                        SweepReportRow(
+                            run_id=run_id,
+                            retriever=retriever_config.name,
+                            chunking_strategy=chunking_config.name,
+                            k=k,
+                            recall_at_k=MISSING,
+                            ndcg_at_10=MISSING,
+                            mrr_at_10=MISSING,
+                            index_time=MISSING,
+                            query_latency=MISSING,
+                            num_queries_total=num_queries_total,
+                            num_queries_scored=num_queries_scored,
+                        )
+                    )
+                continue
+
+            # ndcg_at_10 / mrr_at_10: computed once per run_id, at a
+            # fixed cutoff of 10, from the full document_ranked_lists
+            # -- never inside the k-loop below (Requirement 6.6).
+            ndcg_mrr_succeeded = True
+            try:
+                per_query_ndcg: Dict[str, float] = {
+                    qid: ndcg_at_10(ranked_list, bundle.qrels.get(qid, {}))
+                    for qid, ranked_list in document_ranked_lists.items()
+                }
+                per_query_mrr: Dict[str, float] = {
+                    qid: mrr_at_10(ranked_list, bundle.qrels.get(qid, {}))
+                    for qid, ranked_list in document_ranked_lists.items()
+                }
+                run_ndcg_at_10: Union[float, str] = mean_over_qualifying_queries(
+                    per_query_ndcg, bundle.qrels
+                )
+                run_mrr_at_10: Union[float, str] = mean_over_qualifying_queries(
+                    per_query_mrr, bundle.qrels
+                )
+            except Exception:
+                # MetricComputationError-equivalent, scoped to this
+                # run_id's ndcg/mrr cells only -- recall_at_k and
+                # timing are unaffected.
+                all_succeeded = False
+                ndcg_mrr_succeeded = False
+                per_query_ndcg = {}
+                per_query_mrr = {}
+                run_ndcg_at_10 = MISSING
+                run_mrr_at_10 = MISSING
+
+            # Per-cutoff per-query recall dicts, collected across the
+            # k-loop below (significance-testing spec, Requirement
+            # 1.1, 1.4) -- the exact same per_query_recall dict each
+            # iteration already builds on its way to row_recall_at_k's
+            # mean, kept keyed by cutoff so the Per_Query_Report row
+            # assembly after the loop can read all four cutoffs'
+            # per-query values without recomputing any of them.
+            per_query_recall_by_cutoff: Dict[int, Dict[str, float]] = {}
+            recall_succeeded_by_cutoff: Dict[int, bool] = {}
+
             for k in config.cutoffs:
+                try:
+                    # recall_at_k is recomputed per cutoff by slicing
+                    # the same document_ranked_lists object built from
+                    # the single retrieve_all call above -- no
+                    # additional retrieval call is issued here
+                    # (Requirement 6.1, 6.2).
+                    per_query_recall: Dict[str, float] = {
+                        qid: recall_at_k(ranked_list, bundle.qrels.get(qid, {}), k)
+                        for qid, ranked_list in document_ranked_lists.items()
+                    }
+                    row_recall_at_k: Union[float, str] = mean_over_qualifying_queries(
+                        per_query_recall, bundle.qrels
+                    )
+                    per_query_recall_by_cutoff[k] = per_query_recall
+                    recall_succeeded_by_cutoff[k] = True
+                except Exception:
+                    # MetricComputationError-equivalent, scoped to only
+                    # this row's recall_at_k cell.
+                    all_succeeded = False
+                    row_recall_at_k = MISSING
+                    recall_succeeded_by_cutoff[k] = False
+
                 rows.append(
                     SweepReportRow(
                         run_id=run_id,
                         retriever=retriever_config.name,
-                        chunking_strategy=config.chunking_strategy,
+                        chunking_strategy=chunking_config.name,
                         k=k,
-                        recall_at_k=MISSING,
-                        ndcg_at_10=MISSING,
-                        mrr_at_10=MISSING,
-                        index_time=MISSING,
-                        query_latency=MISSING,
+                        recall_at_k=row_recall_at_k,
+                        ndcg_at_10=run_ndcg_at_10,
+                        mrr_at_10=run_mrr_at_10,
+                        index_time=index_time,
+                        query_latency=query_latency,
                         num_queries_total=num_queries_total,
                         num_queries_scored=num_queries_scored,
                     )
                 )
-            continue
 
-        # ndcg_at_10 / mrr_at_10: computed once per run_id, at a fixed
-        # cutoff of 10, from the full ranked_lists -- never inside the
-        # k-loop below (Requirement 6.6).
-        ndcg_mrr_succeeded = True
-        try:
-            per_query_ndcg: Dict[str, float] = {
-                qid: ndcg_at_10(ranked_list, bundle.qrels.get(qid, {}))
-                for qid, ranked_list in ranked_lists.items()
-            }
-            per_query_mrr: Dict[str, float] = {
-                qid: mrr_at_10(ranked_list, bundle.qrels.get(qid, {}))
-                for qid, ranked_list in ranked_lists.items()
-            }
-            run_ndcg_at_10: Union[float, str] = mean_over_qualifying_queries(
-                per_query_ndcg, bundle.qrels
-            )
-            run_mrr_at_10: Union[float, str] = mean_over_qualifying_queries(
-                per_query_mrr, bundle.qrels
-            )
-        except Exception:
-            # MetricComputationError-equivalent, scoped to this run_id's
-            # ndcg/mrr cells only -- recall_at_k and timing are unaffected.
-            all_succeeded = False
-            ndcg_mrr_succeeded = False
-            per_query_ndcg = {}
-            per_query_mrr = {}
-            run_ndcg_at_10 = MISSING
-            run_mrr_at_10 = MISSING
-
-        # Per-cutoff per-query recall dicts, collected across the k-loop
-        # below (significance-testing spec, Requirement 1.1, 1.4) -- the
-        # exact same per_query_recall dict each iteration already builds
-        # on its way to row_recall_at_k's mean, kept keyed by cutoff so
-        # the Per_Query_Report row assembly after the loop can read all
-        # four cutoffs' per-query values without recomputing any of them.
-        per_query_recall_by_cutoff: Dict[int, Dict[str, float]] = {}
-        recall_succeeded_by_cutoff: Dict[int, bool] = {}
-
-        for k in config.cutoffs:
-            try:
-                # recall_at_k is recomputed per cutoff by slicing the same
-                # ranked_lists object returned by the single retrieve_all
-                # call above -- no additional retrieval call is issued
-                # here (Requirement 5.3, 5.4).
-                per_query_recall: Dict[str, float] = {
-                    qid: recall_at_k(ranked_list, bundle.qrels.get(qid, {}), k)
-                    for qid, ranked_list in ranked_lists.items()
-                }
-                row_recall_at_k: Union[float, str] = mean_over_qualifying_queries(
-                    per_query_recall, bundle.qrels
-                )
-                per_query_recall_by_cutoff[k] = per_query_recall
-                recall_succeeded_by_cutoff[k] = True
-            except Exception:
-                # MetricComputationError-equivalent, scoped to only this
-                # row's recall_at_k cell.
-                all_succeeded = False
-                row_recall_at_k = MISSING
-                recall_succeeded_by_cutoff[k] = False
-
-            rows.append(
-                SweepReportRow(
-                    run_id=run_id,
-                    retriever=retriever_config.name,
-                    chunking_strategy=config.chunking_strategy,
-                    k=k,
-                    recall_at_k=row_recall_at_k,
-                    ndcg_at_10=run_ndcg_at_10,
-                    mrr_at_10=run_mrr_at_10,
-                    index_time=index_time,
-                    query_latency=query_latency,
-                    num_queries_total=num_queries_total,
-                    num_queries_scored=num_queries_scored,
-                )
-            )
-
-        # Per_Query_Report row assembly (significance-testing spec,
-        # Requirement 1): only when every metric this run_id needs --
-        # ndcg_at_10, mrr_at_10, and recall_at_k for all four fixed
-        # cutoffs -- computed successfully, and the declared cutoff set
-        # is exactly {1, 5, 10, 20} (PerQueryReportRow's wide-on-cutoff
-        # schema). PerQueryReportRow carries no missing-value sentinel,
-        # so a run_id with any failure above contributes zero per-query
-        # rows rather than a row with a fabricated cell.
-        if emit_per_query_rows and ndcg_mrr_succeeded and all(
-            recall_succeeded_by_cutoff.get(cutoff, False) for cutoff in SUPPORTED_CUTOFFS
-        ):
-            for qid, ranked_list in ranked_lists.items():
-                qrels_for_query = bundle.qrels.get(qid, {})
-                per_query_rows.append(
-                    PerQueryReportRow(
-                        run_id=run_id,
-                        retriever=retriever_config.name,
-                        chunking_strategy=config.chunking_strategy,
-                        query_id=qid,
-                        recall_at_1=per_query_recall_by_cutoff[1][qid],
-                        recall_at_5=per_query_recall_by_cutoff[5][qid],
-                        recall_at_10=per_query_recall_by_cutoff[10][qid],
-                        recall_at_20=per_query_recall_by_cutoff[20][qid],
-                        ndcg_at_10=per_query_ndcg[qid],
-                        mrr_at_10=per_query_mrr[qid],
-                        num_judged_relevant=len(judged_relevant_docs(qrels_for_query)),
+            # Per_Query_Report row assembly (significance-testing spec,
+            # Requirement 1): only when every metric this run_id needs
+            # -- ndcg_at_10, mrr_at_10, and recall_at_k for all four
+            # fixed cutoffs -- computed successfully, and the declared
+            # cutoff set is exactly {1, 5, 10, 20} (PerQueryReportRow's
+            # wide-on-cutoff schema). PerQueryReportRow carries no
+            # missing-value sentinel, so a run_id with any failure
+            # above contributes zero per-query rows rather than a row
+            # with a fabricated cell.
+            if emit_per_query_rows and ndcg_mrr_succeeded and all(
+                recall_succeeded_by_cutoff.get(cutoff, False) for cutoff in SUPPORTED_CUTOFFS
+            ):
+                for qid, ranked_list in document_ranked_lists.items():
+                    qrels_for_query = bundle.qrels.get(qid, {})
+                    per_query_rows.append(
+                        PerQueryReportRow(
+                            run_id=run_id,
+                            retriever=retriever_config.name,
+                            chunking_strategy=chunking_config.name,
+                            query_id=qid,
+                            recall_at_1=per_query_recall_by_cutoff[1][qid],
+                            recall_at_5=per_query_recall_by_cutoff[5][qid],
+                            recall_at_10=per_query_recall_by_cutoff[10][qid],
+                            recall_at_20=per_query_recall_by_cutoff[20][qid],
+                            ndcg_at_10=per_query_ndcg[qid],
+                            mrr_at_10=per_query_mrr[qid],
+                            num_judged_relevant=len(judged_relevant_docs(qrels_for_query)),
+                        )
                     )
-                )
 
     return rows, per_query_rows, all_succeeded
+
+
+def make_default_chunker_factory(cache_folder: Path) -> ChunkerFactory:
+    """Production `ChunkerFactory` used by `main()`, mirroring
+    `make_default_retriever_factory` below.
+
+    For `WholeDocumentChunkingConfig`, returns `WholeDocumentChunker()`
+    immediately -- no tokenizer load, ever. For `fixed_window`/
+    `sentence_window`, loads the all-MiniLM-L6-v2 tokenizer via
+    `load_chunking_tokenizer` at most once (memoized in the
+    `tokenizer_cache` closure variable), only the first time either is
+    actually requested -- never eagerly at factory-construction time,
+    so a `SweepConfig` declaring only `whole_document` (as in a
+    stub-based test) never triggers a tokenizer load or network
+    access.
+    """
+    tokenizer_cache: Dict[str, object] = {}
+
+    def factory(chunking_config: ChunkingStrategyConfig) -> Chunker:
+        if isinstance(chunking_config, WholeDocumentChunkingConfig):
+            return WholeDocumentChunker()
+        if "tokenizer" not in tokenizer_cache:
+            tokenizer_cache["tokenizer"] = load_chunking_tokenizer(cache_folder)
+        tokenizer = tokenizer_cache["tokenizer"]
+        if isinstance(chunking_config, FixedWindowChunkingConfig):
+            return FixedWindowChunker(
+                tokenizer, chunking_config.window_size, chunking_config.stride
+            )
+        if isinstance(chunking_config, SentenceWindowChunkingConfig):
+            return SentenceWindowChunker(
+                tokenizer,
+                chunking_config.sentences_per_chunk,
+                chunking_config.max_chunk_tokens,
+            )
+        raise ConfigError(f"unsupported chunking config type: {type(chunking_config)!r}")
+
+    return factory
 
 
 def make_default_retriever_factory(cache_folder: Path) -> RetrieverFactory:
@@ -470,8 +564,11 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 1
 
     retriever_factory = make_default_retriever_factory(config.data_dir / "hf_cache")
+    chunker_factory = make_default_chunker_factory(config.data_dir / "hf_cache")
     try:
-        rows, per_query_rows, all_succeeded = run_sweep(config, bundle, retriever_factory)
+        rows, per_query_rows, all_succeeded = run_sweep(
+            config, bundle, retriever_factory, chunker_factory
+        )
     except ZeroQualifyingQueriesError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1

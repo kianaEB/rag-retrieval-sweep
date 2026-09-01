@@ -61,7 +61,7 @@ per shell-conventions.md.
 
 ## Tasks
 
-- [ ] 1. Extend `src/errors.py` with `ChunkingError` and `ChunkingConfigError`
+- [x] 1. Extend `src/errors.py` with `ChunkingError` and `ChunkingConfigError`
   - Add `ChunkingError(Exception)`: raised by `build_chunk_corpus` when a
     `Chunker` produces zero Chunks for a document (Requirement 2.6), and
     reused, wrapped as `FrozenRetrieverConfigError`, if
@@ -80,7 +80,7 @@ per shell-conventions.md.
     prints `ok` with exit code 0.
   - _Requirements: 2.6, 7.6_
 
-- [ ] 2. Pin `hypothesis` in `requirements.txt`
+- [x] 2. Pin `hypothesis` in `requirements.txt`
   - Add `hypothesis==6.167.1` (or whatever version `pip install
     hypothesis` actually resolves in this environment — resolve it the
     same way Task 1 of `session-1-baseline-sweep` resolved its own
@@ -95,7 +95,7 @@ per shell-conventions.md.
     asserts no `src/` file imports it).
   - _Requirements: (Testing Strategy — hypothesis is a new, pinned, test-only dependency)_
 
-- [ ] 3. Extend `src/retrievers/base.py`: `ChunkScores`, and the streaming `Retriever` protocol
+- [x] 3. Extend `src/retrievers/base.py`: `ChunkScores`, and the streaming `Retriever` protocol
   - Remove the `RetrievalRun` dataclass entirely — no retriever bundles
     every query's result into one object anymore, so there is nothing
     left for it to hold.
@@ -118,7 +118,7 @@ per shell-conventions.md.
     prints `ok` and exits 0.
   - _Requirements: 5.7, 6.1, 6.4_
 
-- [ ] 4. Write `src/chunking.py` (part 1): chunk-ID codec, `Chunker` protocol, `build_chunk_corpus`, `WholeDocumentChunker`
+- [x] 4. Write `src/chunking.py` (part 1): chunk-ID codec, `Chunker` protocol, `build_chunk_corpus`, `WholeDocumentChunker`
   - Implement `CHUNK_ID_SEPARATOR = "::chunk"`, the frozen `Chunk`
     dataclass (`chunk_id`, `doc_id`, `position`, `text`),
     `make_chunk_id(doc_id, position) -> str` (`f"{doc_id}{CHUNK_ID_SEPARATOR}{position}"`),
@@ -149,7 +149,7 @@ per shell-conventions.md.
     naming that `doc_id` prints `ok` and exits 0.
   - _Requirements: 2.2, 2.3, 2.4, 2.6_
 
-- [ ] 5. Extend `src/chunking.py` (part 2): `FixedWindowChunker`
+- [x] 5. Extend `src/chunking.py` (part 2): `FixedWindowChunker`
   - Implement `FixedWindowChunker(tokenizer, window_size, stride)`
     (`strategy_name = "fixed_window"`): tokenizes
     `format_document_text(document)` with `add_special_tokens=False,
@@ -190,7 +190,7 @@ per shell-conventions.md.
     document's formatted text. Prints `ok` and exits 0.
   - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7_
 
-- [ ] 6. Extend `src/chunking.py` (part 3): `SentenceWindowChunker`
+- [x] 6. Extend `src/chunking.py` (part 3): `SentenceWindowChunker`
   - Implement the private `_split_into_sentences(text) -> List[str]`
     helper, importing and reusing `src.claim_segmenter._SENTENCE_BOUNDARY`
     directly (never re-implemented) — Requirement 4.1.
@@ -226,7 +226,7 @@ per shell-conventions.md.
     `ok` and exits 0.
   - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7_
 
-- [ ] 7. Extend `src/chunking.py` (part 4): `aggregate_to_document_ranked_list`, `load_chunking_tokenizer`
+- [x] 7. Extend `src/chunking.py` (part 4): `aggregate_to_document_ranked_list`, `load_chunking_tokenizer`
   - Implement `aggregate_to_document_ranked_list(chunk_scores:
     ChunkScores) -> List[str]`: groups `chunk_scores.chunk_ids`/`scores`
     by parsed source `doc_id` (via `parse_chunk_id`), computes each
@@ -255,7 +255,7 @@ per shell-conventions.md.
     not a real tokenizer).
   - _Requirements: 2.5, 5.1, 5.2, 5.5, 5.6, 10.2_
 
-- [ ] 8. Write `tests/test_chunking.py` — Properties 1, 2, 3
+- [x] 8. Write `tests/test_chunking.py` — Properties 1, 2, 3
   - **Property 1: Whole-document chunking preserves content exactly.**
     `hypothesis.strategies.text()` (including empty string and non-ASCII)
     for `title`/`text`, composed into a document dict; asserts
@@ -300,7 +300,7 @@ per shell-conventions.md.
     (Property 3's `WholeDocumentChunker` run needs no tokenizer).
   - _Requirements: 2.2, 2.3, 2.4, 2.5, 2.6, 5.1, 5.2, 5.5, 5.6, 10.2_
 
-- [ ] 9. Extend `tests/test_chunking.py` — Properties 4, 5 (tokenizer-gated)
+- [x] 9. Extend `tests/test_chunking.py` — Properties 4, 5 (tokenizer-gated)
   - Add a `session`-scoped pytest fixture that loads the all-MiniLM-L6-v2
     tokenizer once from `data/hf_cache`, itself gated by a
     `Local_Cache_Availability` check (does
@@ -346,7 +346,7 @@ per shell-conventions.md.
     actually gates, not just exists.
   - _Requirements: 3.3, 3.4, 3.5, 3.6, 3.7, 4.3, 4.4, 4.5, 4.6, 4.7_
 
-- [ ] 10. Update `src/retrievers/bm25_retriever.py` to the Full_Chunk_Depth streaming contract
+- [x] 10. Update `src/retrievers/bm25_retriever.py` to the Full_Chunk_Depth streaming contract
   - Remove `retrieve_all`'s `top_k` parameter, the
     `effective_top_k = min(top_k, len(self._doc_ids))` line, the
     `[:effective_top_k]` slice, and the `(-score,
@@ -372,7 +372,7 @@ per shell-conventions.md.
     before). Prints `ok` and exits 0. No network call.
   - _Requirements: 5.7, 6.1, 6.3, 6.4_
 
-- [ ] 11. Update `src/retrievers/dense_retriever.py` to the same streaming contract
+- [x] 11. Update `src/retrievers/dense_retriever.py` to the same streaming contract
   - Apply the identical `top_k`/slice/sort removal described in Task 10.
   - Change `retrieve_all` into a generator: batch-encode all query texts
     once via `self._model.encode(...)` (cheap — `query_count x
@@ -394,7 +394,7 @@ per shell-conventions.md.
     only after the generator is exhausted. Prints `ok` and exits 0.
   - _Requirements: 5.7, 6.1, 6.3, 6.4_
 
-- [ ] 12. Extend `tests/test_chunking.py` — Property 6
+- [x] 12. Extend `tests/test_chunking.py` — Property 6
   - **Property 6: `BM25Retriever.retrieve_all` yields every indexed
     chunk, scored, at Full_Chunk_Depth, unordered.** A strategy
     generating a small in-memory chunk corpus (`st.dictionaries`,
@@ -415,7 +415,7 @@ per shell-conventions.md.
     `BM25Retriever` constructor already satisfies).
   - _Requirements: 5.7, 6.1_
 
-- [ ] 13. Checkpoint — ensure `tests/test_chunking.py` passes
+- [x] 13. Checkpoint — ensure `tests/test_chunking.py` passes
   - Run `pytest tests/test_chunking.py -v` and confirm every Property
     1–6 test passes (or, for Properties 4/5, is skipped only if
     `data/hf_cache`'s tokenizer snapshot is genuinely absent). Ensure all
@@ -423,7 +423,7 @@ per shell-conventions.md.
     `src/config.py` and `src/sweep_runner.py` around the chunking
     abstraction.
 
-- [ ] 14. Extend `src/config.py`: `chunking_strategies` schema, 3-retriever validation, cross-product derivation
+- [x] 14. Extend `src/config.py`: `chunking_strategies` schema, 3-retriever validation, cross-product derivation
   - Add `WholeDocumentChunkingConfig` (`name`), `FixedWindowChunkingConfig`
     (`name`, `window_size: int`, `stride: int`), and
     `SentenceWindowChunkingConfig` (`name`, `sentences_per_chunk: int`,
@@ -469,7 +469,7 @@ per shell-conventions.md.
     update; run them together if Task 15 is not yet applied.)
   - _Requirements: 1.1, 1.2, 1.3, 1.5, 7.1, 7.2, 7.3, 7.4, 7.6_
 
-- [ ] 15. Update `configs/sweep.yaml`: third retriever and `chunking_strategies` list
+- [x] 15. Update `configs/sweep.yaml`: third retriever and `chunking_strategies` list
   - Replace the single `chunking_strategy: whole_document` line with a
     `chunking_strategies` list of exactly 3 entries: `whole_document`
     (name only); `fixed_window` with `window_size: 200` and `stride: 50`
@@ -484,7 +484,7 @@ per shell-conventions.md.
     prints `ok` and exits 0.
   - _Requirements: 1.1, 1.2, 3.2, 4.2, 7.1, 7.6_
 
-- [ ] 16. Restructure `src/sweep_runner.py`: chunker-factory seam and the chunk-once/retrieve-once/aggregate-once loop
+- [x] 16. Restructure `src/sweep_runner.py`: chunker-factory seam and the chunk-once/retrieve-once/aggregate-once loop
   - Add `ChunkerFactory = Callable[[ChunkingStrategyConfig], Chunker]` and
     `make_default_chunker_factory(cache_folder) -> ChunkerFactory`: for
     `WholeDocumentChunkingConfig`, returns `WholeDocumentChunker()`
@@ -536,7 +536,7 @@ per shell-conventions.md.
     this is a quick sanity check before that suite exists.)
   - _Requirements: 2.6, 5.1, 5.6, 6.1, 6.2, 6.3, 6.5, 7.2, 7.5, 8.1, 8.5_
 
-- [ ] 17. Extend `tests/test_orchestration.py`: `StubChunker` and the chunking-strategy axis (Property 7)
+- [x] 17. Extend `tests/test_orchestration.py`: `StubChunker` and the chunking-strategy axis (Property 7)
   - Update `StubRetriever` to the new generator-based `retrieve_all`
     contract: no `top_k` parameter; yields `(query_id, ChunkScores)` pairs
     one at a time (built from its fixed literal scores) instead of
@@ -571,7 +571,7 @@ per shell-conventions.md.
     Requirement 12's real-corpus tests).
   - _Requirements: 6.3, 6.5, 8.5, 13.1, 13.2, 13.3, 13.4_
 
-- [ ] 18. Verify the chunking abstraction reproduces the committed whole-document baseline (Requirement 2.5)
+- [x] 18. Verify the chunking abstraction reproduces the committed whole-document baseline (Requirement 2.5)
   - Capture the exact committed baseline via `git show HEAD:results/sweep.csv`,
     written to a temp file — never relying on the working tree's
     `results/sweep.csv`, so the comparison is anchored to the version
@@ -632,7 +632,7 @@ per shell-conventions.md.
     regardless of outcome.
   - _Requirements: 2.5_
 
-- [ ] 19. Measure fixed_window runtime and chunk count, and extrapolate to the full 9-run grid before committing to Task 28
+- [x] 19. Measure fixed_window runtime and chunk count, and extrapolate to the full 9-run grid before committing to Task 28
   - Load the real, already-cached SciFact corpus (`load_scifact`) and
     chunk it once under `fixed_window` (`window_size=200, stride=50`,
     Task 5's `FixedWindowChunker`, using the already-cached
@@ -682,7 +682,7 @@ per shell-conventions.md.
     acceptance criterion — the same convention already used for the
     checkpoint tasks, which also omit a `_Requirements:` line).
 
-- [ ] 20. Extend `src/significance_config.py`: pinned `reference_chunking_strategy`
+- [x] 20. Extend `src/significance_config.py`: pinned `reference_chunking_strategy`
   - Add `reference_chunking_strategy: str` to `SignificanceConfig`, as a
     **required** field with no default (unlike `run_config_path`) — an
     implicit default here would reintroduce exactly the "silently pick a
@@ -698,7 +698,7 @@ per shell-conventions.md.
     Prints `ok` and exits 0.
   - _Requirements: 9.3_
 
-- [ ] 21. Update `configs/significance.yaml`: pin `reference_chunking_strategy`
+- [x] 21. Update `configs/significance.yaml`: pin `reference_chunking_strategy`
   - Add `reference_chunking_strategy: whole_document` alongside the
     existing `reference_retriever: bm25` field (Requirement 9.2) — the
     explicit pin to `bm25__whole_document`, matching the already-published
@@ -707,7 +707,7 @@ per shell-conventions.md.
     prints `ok` and exits 0.
   - _Requirements: 9.2_
 
-- [ ] 22. Extend `src/significance.py`: explicit `reference_run_id` pin, replacing the sorted-first-bm25 rule
+- [x] 22. Extend `src/significance.py`: explicit `reference_run_id` pin, replacing the sorted-first-bm25 rule
   - Replace `_find_reference_run_id(frame, reference_retriever)` with
     `_find_reference_run_id(frame, reference_run_id)`: performs an EXACT
     match of `reference_run_id` against `frame['run_id'].unique()` and
@@ -739,7 +739,7 @@ per shell-conventions.md.
     exits 0.
   - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5, 9.6, 9.7, 9.8_
 
-- [ ] 23. Update `src/retrieval_replay.py`: route through `WholeDocumentChunker` + trivial `Max_Aggregation`
+- [x] 23. Update `src/retrieval_replay.py`: route through `WholeDocumentChunker` + trivial `Max_Aggregation`
   - Update `build_frozen_retriever`: after loading the real corpus,
     construct a `WholeDocumentChunker()`, call
     `build_chunk_corpus(chunker, bundle.corpus)`, and pass the resulting
@@ -783,7 +783,7 @@ per shell-conventions.md.
     behavior. Prints `ok` and exits 0.
   - _Requirements: 10.1, 10.2, 10.5, 10.6_
 
-- [ ] 24. Extend `src/token_length_analysis.py`: 6-cell report (3 strategies x 2 dense models)
+- [x] 24. Extend `src/token_length_analysis.py`: 6-cell report (3 strategies x 2 dense models)
   - Add the frozen `TokenLengthCell` dataclass (`chunking_strategy`,
     `model_name`, `max_sequence_length`, `num_documents_total` — actually
     "num Chunks total" for that strategy, `num_documents_exceeding`,
@@ -820,7 +820,7 @@ per shell-conventions.md.
     network call (uses the already-cached tokenizer or a fixture).
   - _Requirements: 11.1, 11.2, 11.3, 11.4, 11.5_
 
-- [ ] 25. Extend `tests/test_token_length_analysis.py`: whole-document regression check
+- [x] 25. Extend `tests/test_token_length_analysis.py`: whole-document regression check
   - Add one test asserting that a `compute_cell` call for the
     `whole_document` x `all-MiniLM-L6-v2` cell, against a small
     hand-built in-memory corpus and the real cached tokenizer, produces a
@@ -836,7 +836,7 @@ per shell-conventions.md.
     prints `ok`.
   - _Requirements: 11.4_
 
-- [ ] 26. Write `tests/test_data_layer.py`: `Data_Layer_Tests` and `Real_Corpus_End_To_End_Tests`
+- [x] 26. Write `tests/test_data_layer.py`: `Data_Layer_Tests` and `Real_Corpus_End_To_End_Tests`
   - Implement `_local_cache_available() -> bool` (Requirement 12.3):
     checks that `data/scifact` and every `data/hf_cache/models--*`
     directory this spec's grid needs (`all-MiniLM-L6-v2`,
@@ -871,7 +871,7 @@ per shell-conventions.md.
     once Task 28 runs, `bge-small-en-v1.5`) already exists.
   - _Requirements: 12.1, 12.2, 12.3, 12.4, 12.5, 12.6_
 
-- [ ] 27. Checkpoint — ensure the full `pytest` suite passes
+- [x] 27. Checkpoint — ensure the full `pytest` suite passes
   - Run `pytest -v` (the entire suite: `test_chunking.py`,
     `test_orchestration.py`, `test_metrics.py`, `test_significance.py`,
     `test_claim_segmenter.py`, `test_quarantine_rule.py`,
@@ -881,7 +881,7 @@ per shell-conventions.md.
     which are the first tasks in this spec's sequence to touch the
     network. Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 28. Run the real sweep end to end and commit the 36-row `results/sweep.csv` / `9 * Q`-row `results/per_query.csv`
+- [x] 28. Run the real sweep end to end and commit the 36-row `results/sweep.csv` / `9 * Q`-row `results/per_query.csv`
   - Run `python -m src.sweep_runner --config configs/sweep.yaml`. This is
     the first task in this spec's sequence that touches the network: a
     one-time `BAAI/bge-small-en-v1.5` weight download to
@@ -899,7 +899,7 @@ per shell-conventions.md.
     rule. Prints `ok` and exits 0.
   - _Requirements: 1.1, 1.2, 1.3, 6.1, 6.2, 6.3, 6.5, 7.5, 8.1, 8.2, 8.3, 8.4, 8.5_
 
-- [ ] 29. Run the real significance re-run and commit the 48-row `results/significance.csv`
+- [x] 29. Run the real significance re-run and commit the 48-row `results/significance.csv`
   - Run `python -m src.significance --config configs/significance.yaml`
     against the `results/per_query.csv` Task 28 just produced. Makes no
     network call.
@@ -913,7 +913,7 @@ per shell-conventions.md.
     and exits 0.
   - _Requirements: 9.1, 9.2, 9.4, 9.5, 9.6, 9.7, 9.8_
 
-- [ ] 30. Run the real Token_Length_Analysis and commit the extended 6-cell `results/token_length_report.json`
+- [x] 30. Run the real Token_Length_Analysis and commit the extended 6-cell `results/token_length_report.json`
   - Run `python -m src.token_length_analysis` (using the already-cached
     corpus and tokenizers under `data/` — no new download expected, since
     Task 28 already downloaded `bge-small-en-v1.5`'s weights, and its
@@ -930,7 +930,7 @@ per shell-conventions.md.
     `model_max_length`). Prints `ok` and exits 0.
   - _Requirements: 11.1, 11.2, 11.3, 11.4, 11.5_
 
-- [ ] 31. Verify `retrieval_replay.py`'s output-preserving update via rerun-and-diff of the groundedness gate
+- [x] 31. Verify `retrieval_replay.py`'s output-preserving update via rerun-and-diff of the groundedness gate
   - Before re-running: copy the five existing groundedness-gate artifacts
     (`results/groundedness.csv`, `results/generated_answers.csv`,
     `results/hand_checked_sample.csv`, `results/hand_checked_joined.csv`,
@@ -961,7 +961,7 @@ per shell-conventions.md.
     exits 0 only if every file matches within tolerance.
   - _Requirements: 10.2, 10.3, 10.4, 10.5, 10.6_
 
-- [ ] 32. Author the `README.md`/`SPEC.md`/`docs/numeric_traceability.csv` updates
+- [x] 32. Author the `README.md`/`SPEC.md`/`docs/numeric_traceability.csv` updates
   - Update `README.md`'s headline finding, results table (now covering 3
     retrievers x 3 Chunking_Strategy entries, with the `whole_document`
     slice called out explicitly as the slice being reported for the
@@ -1001,7 +1001,7 @@ per shell-conventions.md.
     prose.
   - _Requirements: 1.4, 14.1, 14.2, 14.3, 14.4, 14.5_
 
-- [ ] 33. Run the Verification_Pass for real and fix any mismatch
+- [x] 33. Run the Verification_Pass for real and fix any mismatch
   - Run `python -m src.verify_writeup_numbers --repo-root .` against the
     fully updated `docs/numeric_traceability.csv` (Task 32) and the real
     committed `results/sweep.csv`, `results/per_query.csv`,

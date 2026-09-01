@@ -1,4 +1,5 @@
-# Bootstrap_Config for the significance-testing spec (rag-retrieval-sweep).
+# Bootstrap_Config for the significance-testing / full-grid-chunking-sweep
+# specs (rag-retrieval-sweep).
 #
 # Declares, as data, the paired-bootstrap resample count, the paired
 # permutation-test iteration count, and the Bootstrap_Seed applied to
@@ -9,6 +10,13 @@
 # accidentally cross-referenced. `alpha` is the significance threshold,
 # fixed in advance at 0.05 (see evaluation-integrity.md) and never
 # revised after seeing results.
+#
+# `reference_retriever` + `reference_chunking_strategy` together pin the
+# exact Reference_Run `run_id` (`bm25__whole_document`) explicitly --
+# with three Chunking_Strategy entries now present, an implicit
+# "first bm25 run_id in sorted order" rule could silently select a
+# different BM25 variant (e.g. `bm25__fixed_window`) instead. This pin
+# matches the already-published README/SPEC whole-document baseline.
 
 resample_count: 10000
 
@@ -19,6 +27,8 @@ bootstrap_seed: 20240      # distinct from configs/sweep.yaml's seed: 42
 alpha: 0.05
 
 reference_retriever: bm25
+
+reference_chunking_strategy: whole_document
 
 per_query_path: results/per_query.csv
 

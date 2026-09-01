@@ -6,26 +6,31 @@ Loads the configured model (`all-MiniLM-L6-v2` for session 1) on
 path under `data/` (Requirement 4.3). Builds exactly one embedding
 index over the whole-document corpus in `build_index` (Requirement
 4.1, 4.5) into L2-normalized embeddings, so cosine similarity reduces
-to a dot product, and produces exactly one Ranked_List per query in a
-single `retrieve_all` call (Requirement 4.4), ranking by brute-force
-exact dot product over every corpus embedding -- no ANN index -- tied
-broken by the same `doc_id_sort_key` ascending-document-ID rule
-`BM25Retriever` uses (Requirement 4.8), per `design.md`'s
-`src/retrievers/dense_retriever.py` section.
+to a dot product.
+
+`retrieve_all` streams one `ChunkScores` per query -- every indexed
+chunk, scored, at Full_Chunk_Depth, via a single call
+(Requirements 5.7, 6.1, 6.3, 6.4). There is no `top_k` parameter and no
+sort: ranking and depth-slicing happen downstream, after
+Max_Aggregation (`src/chunking.py`), not here. Ranking still uses
+brute-force exact dot product over every corpus embedding -- no ANN
+index -- and the `doc_id_sort_key` ascending-document-ID tie-break
+`BM25Retriever` uses is applied later, by the aggregation step, not by
+this retriever.
 """
 
 from __future__ import annotations
 
 import time
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Iterator, List, Optional, Tuple
 
 import numpy
 from sentence_transformers import SentenceTransformer
 
 from src.config import DenseRetrieverConfig
 from src.errors import ModelLoadError
-from src.retrievers.base import doc_id_sort_key
+from src.retrievers.base import ChunkScores
 
 
 def format_document_text(doc: Dict[str, str]) -> str:
@@ -110,27 +115,26 @@ class DenseRetriever:
         )
         return time.perf_counter() - start
 
-    def retrieve_all(
-        self, queries: Dict[str, str], top_k: int
-    ) -> Tuple[Dict[str, List[str]], float]:
-        """Encodes all queries in one batched `model.encode(...)` call,
-        then ranks every corpus document per query by brute-force, exact
-        cosine similarity -- a dot product, since both query and corpus
-        embeddings are L2-normalized -- computed with `numpy` over the
-        full corpus embedding matrix, with no ANN index (Requirement
-        4.4). For each query, ranks by
-        `(-similarity, doc_id_sort_key(doc_id))`, using the same shared
-        `doc_id_sort_key` helper `BM25Retriever` uses, so ties are broken
-        by ascending numeric document ID identically across both
-        retrievers (Requirement 4.8). Takes the top
-        `min(top_k, corpus size)` document IDs (Requirement 5.2). Times
-        query encoding plus similarity computation together as
-        query_latency (Requirement 4.6).
+    def retrieve_all(self, queries: Dict[str, str]) -> Iterator[Tuple[str, ChunkScores]]:
+        """Encodes all queries in one batched `model.encode(...)` call
+        up front -- cheap, `query_count x embedding_dim`, not the memory
+        concern -- then, for each query in turn, computes its full
+        chunk-score vector via a single mat-vec (`self._doc_embeddings @
+        query_embeddings[row_idx]`), never materializing the full query
+        x chunk similarity matrix. Yields `(qid, ChunkScores(chunk_ids,
+        scores))` per query, lazily, at Full_Chunk_Depth (Requirement
+        6.1) -- every corpus embedding, scored, with no ANN index
+        (Requirement 4.4) and no truncation (Requirement 6.4). The same
+        `chunk_id_index` tuple object is reused, unmodified, across every
+        yield (Requirement 5.7). Times query encoding plus the per-query
+        mat-vec loop together as `total_latency`, only setting
+        `self.last_query_latency` once the loop -- and therefore the
+        returned generator -- has been fully exhausted (Requirement 5.7).
         """
         if self._doc_embeddings is None:
             raise RuntimeError("build_index must be called before retrieve_all")
 
-        effective_top_k = min(top_k, len(self._doc_ids))
+        chunk_id_index: Tuple[str, ...] = tuple(self._doc_ids)
         query_ids = list(queries.keys())
         query_texts = [queries[qid] for qid in query_ids]
 
@@ -142,20 +146,17 @@ class DenseRetriever:
             normalize_embeddings=True,
             show_progress_bar=False,
         )
-        # Brute-force exact cosine similarity over every corpus document:
-        # both sides are L2-normalized, so the dot product IS the cosine
-        # similarity -- no approximation, no ANN index (Requirement 4.4).
-        similarity_matrix = query_embeddings @ self._doc_embeddings.T
+        total_latency = time.perf_counter() - start
 
-        ranked_lists: Dict[str, List[str]] = {}
         for row_idx, qid in enumerate(query_ids):
-            scores = similarity_matrix[row_idx]
-            scored_doc_ids = sorted(
-                zip(self._doc_ids, scores),
-                key=lambda pair: (-pair[1], doc_id_sort_key(pair[0])),
-            )
-            ranked_lists[qid] = [
-                doc_id for doc_id, _score in scored_doc_ids[:effective_top_k]
-            ]
-        query_latency = time.perf_counter() - start
-        return ranked_lists, query_latency
+            mat_vec_start = time.perf_counter()
+            # Brute-force exact cosine similarity for this one query,
+            # against every corpus chunk: both sides are L2-normalized,
+            # so the dot product IS the cosine similarity -- no
+            # approximation, no ANN index (Requirement 4.4). A single
+            # mat-vec, never the full query x chunk matrix at once.
+            scores = self._doc_embeddings @ query_embeddings[row_idx]
+            total_latency += time.perf_counter() - mat_vec_start
+            yield qid, ChunkScores(chunk_ids=chunk_id_index, scores=scores)
+
+        self.last_query_latency = total_latency

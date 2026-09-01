@@ -10,21 +10,81 @@ to the `.kiro/specs/` folder mechanism used to build this repository.
 
 The sweep is config-driven (`configs/sweep.yaml`), and the grid
 actually applied to the reported run — read from
-`results/run_config.json`'s `sweep_config` object — is: two
-retrievers, `bm25` (`k1 = 1.50`, `b = 0.75`) and `all-MiniLM-L6-v2`;
-evaluation cutoffs `1, 5, 10, 20`; and a single chunking strategy,
-`whole_document`.
+`results/run_config.json`'s `sweep_config` object — is a 3x4x3 grid:
+3 retrievers (`bm25`, `k1 = 1.50`, `b = 0.75`; `all-MiniLM-L6-v2`;
+`bge-small-en-v1.5`, `model_name = BAAI/bge-small-en-v1.5`) x 4
+evaluation cutoffs (`1, 5, 10, 20`) x 3 chunking strategies
+(`whole_document`; `fixed_window`, `window_size = 200` tokens,
+`stride = 50` tokens; `sentence_window`, `sentences_per_chunk = 3`,
+`max_chunk_tokens = 256`), for **36** rows in `results/sweep.csv` (9
+runs x 4 cutoffs) and **48** rows in `results/significance.csv` (8
+comparisons x 6 metrics — every run except the pinned Reference_Run,
+`bm25__whole_document`, compared on recall@1/5/10/20, nDCG@10, and
+MRR@10).
 
-### Index once, retrieve once, slice four ways
+`bge-small-en-v1.5`'s model documentation recommends prepending a
+query-prefix instruction string to query text for best-case asymmetric
+retrieval quality; this sweep does not do that for either dense
+retriever, for either dense model, so both go through the identical
+`build_index`/`retrieve_all` code path with no query-side
+special-casing — see "Threats to validity" below.
 
-Each retriever is indexed exactly once over the whole corpus, and
-queried exactly once, at the deepest declared cutoff (`20`). Every
-cutoff's recall@k value is computed by slicing that single returned
-ranked list to the first `k` documents, rather than by issuing a
-separate retrieval run per cutoff. nDCG@10 and MRR@10 are each
-computed once per retriever, at a fixed cutoff of 10, and copied
-unchanged into every one of that retriever's rows in
+### Index once, retrieve once, aggregate once, slice four ways
+
+Each of the 9 retriever x chunking-strategy combinations is indexed
+exactly once (over that combination's chunk corpus) and queried
+exactly once, at Full_Chunk_Depth — every chunk in that run's index,
+never a fixed numeric depth. For every query, that single retrieval
+call's per-chunk scores are reduced to a per-document score via
+Max_Aggregation (below), and the resulting document-ranked list is
+sliced to each of the four declared cutoffs, exactly as session 1's
+single whole-document ranked list was sliced. nDCG@10 and MRR@10 are
+each computed once per run, at a fixed cutoff of 10, and copied
+unchanged into every one of that run's four rows in
 `results/sweep.csv`.
+
+### Max_Aggregation convention
+
+A document is split into one or more Chunks by its run's declared
+chunking strategy (`whole_document`: one Chunk per document, an
+identity transform; `fixed_window`/`sentence_window`: potentially many
+Chunks per document). Each Chunk is scored independently by the
+retriever, then a document's aggregate score, for a given query, is
+the **maximum** score among that document's own Chunks — never the
+mean or the sum. Ties among documents with equal aggregate score are
+broken by ascending document ID, the same tie-break rule session 1
+already applied at the per-document level.
+
+Maximum was chosen, and declared before any full-grid result existed,
+because mean and sum would each penalize a document for having many
+Chunks, or for irrelevant Chunks diluting one strongly relevant
+Chunk's score, making a document's aggregate score mechanically
+dependent on its own chunk count — itself a confound. Maximum instead
+answers "does at least one Chunk of this document look relevant,"
+which matches what recall@k, nDCG@10, and MRR@10 are already trying to
+measure at the document level. Chunk identifiers are constructed as
+`{doc_id}::chunk{position}` (a fixed separator that never occurs in a
+BEIR SciFact document ID), so a Chunk's source document is always
+recoverable by parsing its identifier alone.
+
+Under `whole_document` chunking specifically, every document has
+exactly one Chunk, so Max_Aggregation is mathematically the identity
+permutation of ranking documents directly by their own single score —
+this is what makes the chunking abstraction itself reproduce session
+1's already-published whole-document numbers bit-for-bit, verified
+directly against the committed baseline before the `fixed_window`/
+`sentence_window` grid cells were trusted.
+
+### Reference_Run
+
+The Reference_Run is pinned explicitly to `bm25__whole_document`,
+matching the whole-document baseline already published in earlier
+revisions of this document — not inferred by sorting run IDs. With 3
+chunking strategies now declared, an implicit "first bm25 run_id"
+rule could otherwise silently select a different BM25 variant (e.g.
+`bm25__fixed_window`) as the reference. Every other one of the 9 runs
+is compared against this single pinned reference; `bm25__whole_document`
+itself never appears as a comparison row in `results/significance.csv`.
 
 ### Relevance ground truth
 
@@ -41,14 +101,19 @@ every configuration as secondary metrics.
 
 ### Statistical scheme
 
-Every non-BM25 run is compared against the BM25 reference run with a
+Every one of the 8 non-reference runs is compared against the pinned
+Reference_Run (`bm25__whole_document`, see above) with a
 paired-bootstrap confidence interval and a paired two-sided permutation
 p-value, over `resample_count = 10000` bootstrap resamples and
 `permutation_count = 10000` permutations, drawn from a single
 `numpy` random generator seeded with `bootstrap_seed = 20240`. The
-nDCG@10 comparison family's raw p-values are then adjusted with a
-Holm-Bonferroni step-down correction before the primary-metric verdict
-is decided.
+nDCG@10 comparison family — all 8 comparisons' raw p-values — is then
+adjusted together with a Holm-Bonferroni step-down correction before
+each comparison's primary-metric verdict is decided; the other 5
+metrics (recall@1/5/10/20, MRR@10) are reported per comparison but
+carry no correction and no verdict (`n/a` in `results/significance.csv`),
+since the Holm correction and the primary-metric verdict apply to
+nDCG@10 alone.
 
 ## nDCG@10 convention
 
@@ -105,37 +170,93 @@ about how these retrievers would compare on another domain or corpus.
 
 ### Statistical power
 
-The nDCG@10 comparison's 95% confidence interval has a half-width of
-**0.0384**. A true difference between the two runs smaller than that
-half-width could exist without this study's paired bootstrap being
-able to detect it at this sample size — the "indistinguishable"
-verdict reported in `README.md` and above reflects an inability to
-distinguish the comparison from noise at this study's statistical
-power, not proof that no difference exists between the two runs.
+The `all-MiniLM-L6-v2`/`whole_document` nDCG@10 comparison's 95%
+confidence interval has a half-width of **0.0378**; the
+`bge-small-en-v1.5`/`whole_document` comparison's has a half-width of
+**0.0389**. A true difference between two runs smaller than the
+relevant half-width could exist without this study's paired bootstrap
+being able to detect it at this sample size — an "indistinguishable"
+verdict reflects an inability to distinguish a comparison from noise
+at this study's statistical power, not proof that no difference
+exists between the two runs. This limitation applies uniformly across
+all 8 comparisons in `results/significance.csv`, not only to the two
+whole-document ones singled out above.
 
 ### BM25 query latency is an implementation artifact, not a property of lexical retrieval
 
-The measured BM25 query latency in this run was **7.50** seconds
-across all 300 test queries. That figure is a property of `rank_bm25`,
-a pure-Python scoring implementation, not an inherent property of
-lexical retrieval — a compiled or indexed lexical search engine (e.g.
-Lucene-based) would be expected to score substantially faster. This
-measurement should not be generalized to "lexical retrieval is slow."
+The measured BM25 query latency in the `whole_document` run was
+**8.41** seconds across all 300 test queries. That figure is a
+property of `rank_bm25`, a pure-Python scoring implementation, not an
+inherent property of lexical retrieval — a compiled or indexed lexical
+search engine (e.g. Lucene-based) would be expected to score
+substantially faster. This measurement should not be generalized to
+"lexical retrieval is slow."
 
-### Token-length truncation under whole-document chunking
+### Token-length truncation, measured across every chunking strategy and both dense models
 
-Measured directly against the cached `all-MiniLM-L6-v2` tokenizer over
-every document in the loaded corpus (`results/token_length_report.json`):
-**71.02%** of corpus documents exceed the model's 256-token maximum
-sequence length under whole-document chunking. Because that fraction
-is not a small, negligible one, this is stated as a concrete confound
-in the headline comparison, not a minor caveat: the BM25 run
-scores each document's full text, while the `all-MiniLM-L6-v2` run
-scores only the first 256 tokens of that same document. The
-"indistinguishable" nDCG@10 verdict reported above and in `README.md`
-should be read with this asymmetry in mind — it is a confound in the
-headline comparison, not evidence about either retriever's underlying
-ranking quality.
+Measured directly against the cached `all-MiniLM-L6-v2` and
+`bge-small-en-v1.5` tokenizers over every Chunk each chunking strategy
+actually produces (`results/token_length_report.json`'s 6-cell
+report — 3 chunking strategies x 2 dense models):
+
+| Chunking strategy | `all-MiniLM-L6-v2` (max 256 tokens) | `bge-small-en-v1.5` (max 512 tokens) |
+|---|---|---|
+| `whole_document` | **71.02%** exceed | **8.78%** exceed |
+| `fixed_window` | **0.00%** exceed | **0.00%** exceed |
+| `sentence_window` | **0.06%** exceed | **0.00%** exceed |
+
+Under `whole_document` chunking, the confound named in earlier
+revisions of this document still holds for `all-MiniLM-L6-v2`
+specifically: the BM25 run scores each document's full text, while
+the `all-MiniLM-L6-v2` run scores only the first 256 tokens of most
+documents (71.02% exceed that limit). `bge-small-en-v1.5`'s larger
+512-token budget is exceeded by far fewer documents (8.78%) under the
+same whole-document chunking, so the two dense models' whole-document
+results are not confounded to the same degree — part of why this
+document does not treat them as directly comparable in kind.
+`fixed_window` and `sentence_window` chunking remove this confound by
+construction for both models (each Chunk is built to fit under its
+own token budget), which is the whole reason those two strategies
+exist in this grid: to test whether the `whole_document`/
+`all-MiniLM-L6-v2` result was substantially a truncation artifact
+rather than a property of the retriever. The nDCG@10 verdicts reported
+in `README.md` and above should be read with this per-cell truncation
+picture in mind, not only the single 71.02% figure the earlier,
+whole-document-only measurement reported.
+
+### `bge-small-en-v1.5`'s query-prefix omission
+
+`bge-small-en-v1.5`'s model documentation recommends prepending a
+query-prefix instruction string to query text for best-case asymmetric
+retrieval quality. This sweep does not do that: `bge-small-en-v1.5`'s
+queries are encoded through the identical, unmodified
+`build_index`/`retrieve_all` code path already used for
+`all-MiniLM-L6-v2`, with no query-side special-casing. This is a
+deliberately accepted limitation, declared here before any full-grid
+result existed: it is expected to reduce `bge-small-en-v1.5`'s
+measured nDCG@10 relative to a run that included the vendor-recommended
+prefix, though this document does not assert a specific numeric
+magnitude for that reduction. `bge-small-en-v1.5`'s significant nDCG@10
+advantage over BM25, reported above under all three chunking
+strategies, should be read as a lower bound on what that model could
+achieve with the recommended query-prefix treatment, not an upper one.
+
+### Retrieval-replay equivalence verification
+
+`src/retrieval_replay.py` (used by the groundedness gate below) was
+updated to route the frozen `bm25__whole_document` retriever through
+the same chunking-and-aggregation abstraction the full-grid sweep
+itself uses, rather than calling the retriever directly. Because
+`whole_document` chunking is a no-op and Max_Aggregation over exactly
+one Chunk per document is the identity, this update is expected to be
+output-preserving. This was verified by re-running the entire
+groundedness gate end to end after the update and diffing every one of
+its five output files against their pre-update committed versions:
+byte-for-byte for the four CSV/Markdown files, and within `1e-9` for
+every floating-point CSV column. Every file matched. This procedure is
+repeatable by a future maintainer against a future retrieval-replay
+change: back up the five files, re-run
+`python -m src.groundedness_runner`, and diff.
 
 ## Groundedness gate
 
@@ -376,13 +497,13 @@ wide enough to be compatible with the judge tracking the human
 somewhat worse than chance, at chance, or somewhat better, and this
 study cannot distinguish those possibilities at this sample size. This
 is the same
-statistical-power limitation already named for the nDCG@10 comparison
-in "Threats to validity" above (a 95% confidence interval half-width
-of 0.0384 on 300 queries) — here it is sharper only because n = 19 is
-far smaller than n = 300, not because a different kind of uncertainty
-is at play. The assertion-partition Agreement_Rate is reported for
-transparency about where the disagreement concentrates, not as a
-performance estimate of the Judge_Model.
+statistical-power limitation already named for the nDCG@10 comparisons
+in "Threats to validity" above (95% confidence interval half-widths of
+0.0378-0.0389 on 300 queries) — here it is sharper only because n = 19
+is far smaller than n = 300, not because a different kind of
+uncertainty is at play. The assertion-partition Agreement_Rate is
+reported for transparency about where the disagreement concentrates,
+not as a performance estimate of the Judge_Model.
 
 ### Limitations this Quarantine_Rate inherits
 

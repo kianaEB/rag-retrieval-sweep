@@ -17,9 +17,15 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Dict, List, Tuple, Union
 
+from src.chunking import (
+    WholeDocumentChunker,
+    aggregate_to_document_ranked_list,
+    build_chunk_corpus,
+)
 from src.config import BM25RetrieverConfig, DenseRetrieverConfig, SweepConfig, load_sweep_config
 from src.corpus_loader import CorpusBundle, configure_caches, load_scifact
 from src.errors import (
+    ChunkingError,
     ConfigError,
     CorpusLoadError,
     CorpusValidationError,
@@ -75,12 +81,20 @@ def build_frozen_retriever(
     """Constructs the ONE matched retriever type, loads the real corpus
     via configure_caches + load_scifact (a genuine, non-mocked corpus
     load -- the Frozen_Retriever_Config needs a real index to replay
-    against), and builds that retriever's index exactly once over the
-    full loaded corpus (Requirement 3.1).
+    against), chunks that corpus via `WholeDocumentChunker` (exactly
+    one Chunk per document, containing that document's unmodified
+    content -- the same no-op wrapping of session-1's whole-document
+    behavior the Sweep_Runner itself applies), and builds that
+    retriever's index exactly once over the resulting chunk corpus,
+    not `bundle.corpus` directly (Requirement 10.1).
 
     Raises `FrozenRetrieverConfigError` if the corpus fails to load
-    (wrapping CorpusLoadError/CorpusValidationError). Raises
-    `RetrievalReplayError` if index construction fails.
+    (wrapping CorpusLoadError/CorpusValidationError), or if
+    `WholeDocumentChunker`'s application to the loaded corpus ever
+    fails (wrapping the underlying `ChunkingError` -- reused rather
+    than a new exception type, per `src/errors.py`'s `ChunkingError`
+    docstring). Raises `RetrievalReplayError` if index construction
+    fails.
     """
     configure_caches(sweep_config.data_dir)
     try:
@@ -89,6 +103,14 @@ def build_frozen_retriever(
         raise FrozenRetrieverConfigError(
             f"Retrieval_Replay could not load the corpus needed to "
             f"rebuild the Frozen_Retriever_Config's index: {exc}"
+        ) from exc
+
+    try:
+        chunk_corpus = build_chunk_corpus(WholeDocumentChunker(), bundle.corpus)
+    except ChunkingError as exc:
+        raise FrozenRetrieverConfigError(
+            f"Retrieval_Replay's WholeDocumentChunker application to the "
+            f"loaded corpus failed: {exc}"
         ) from exc
 
     if isinstance(retriever_config, BM25RetrieverConfig):
@@ -103,7 +125,7 @@ def build_frozen_retriever(
         )
 
     try:
-        retriever.build_index(bundle.corpus)
+        retriever.build_index(chunk_corpus)
     except Exception as exc:
         raise RetrievalReplayError(
             f"index construction failed for {retriever.name}: {exc}"
@@ -120,11 +142,23 @@ def replay_retrieval(
     replay_top_k: int,
 ) -> Dict[str, List[str]]:
     """Issues exactly ONE `retrieve_all` call, with `queries` limited to
-    `subset_query_ids` only (Requirement 3.5), at `top_k=replay_top_k`,
-    and returns `{query_id: Retrieved_Context}` -- each Retrieved_Context
+    `subset_query_ids` only (Requirement 3.5) -- no `top_k` argument;
+    that parameter no longer exists on the streaming `retrieve_all`
+    contract. Consumes the returned generator, applying
+    `aggregate_to_document_ranked_list` to each query's `ChunkScores`
+    to reduce it to a `Document_Ranked_List`, THEN slices to
+    `replay_top_k` -- the slicing `retrieve_all`'s own `top_k`
+    parameter used to perform now happens here, after aggregation.
+    Returns `{query_id: Retrieved_Context}` -- each Retrieved_Context
     is the ordered list of document texts (via `format_document_text`,
     preserving retrieval-rank order) corresponding to that query's
-    ranked document IDs (Requirement 3.2).
+    sliced, ranked document IDs (Requirement 3.2).
+
+    Because `whole_document` chunking followed by 1-chunk
+    Max_Aggregation is the identity transform, this produces, for
+    every Generation_Subset query, a Retrieved_Context numerically
+    identical to what the pre-update code path produced (Requirement
+    10.2).
 
     Calling this once for the whole subset, rather than once per
     query_id, is what satisfies both Requirement 3.1 ("rather than
@@ -142,9 +176,13 @@ def replay_retrieval(
     """
     subset_queries = {qid: queries[qid] for qid in subset_query_ids}
     try:
-        ranked_lists, _query_latency = retriever.retrieve_all(
-            subset_queries, top_k=replay_top_k
-        )
+        retrieved_context: Dict[str, List[str]] = {}
+        for qid, chunk_scores in retriever.retrieve_all(subset_queries):
+            document_ranked_list = aggregate_to_document_ranked_list(chunk_scores)
+            sliced = document_ranked_list[:replay_top_k]
+            retrieved_context[qid] = [
+                format_document_text(bundle.corpus[doc_id]) for doc_id in sliced
+            ]
     except Exception as exc:
         raise RetrievalReplayError(
             f"retrieval failed for the Generation_Subset "
@@ -152,9 +190,4 @@ def replay_retrieval(
             f"replay_top_k={replay_top_k}: {exc}"
         ) from exc
 
-    retrieved_context: Dict[str, List[str]] = {}
-    for qid, doc_ids in ranked_lists.items():
-        retrieved_context[qid] = [
-            format_document_text(bundle.corpus[doc_id]) for doc_id in doc_ids
-        ]
     return retrieved_context

@@ -297,25 +297,26 @@ def _read_per_query_report(path: Path) -> pandas.DataFrame:
     return frame
 
 
-def _find_reference_run_id(frame: pandas.DataFrame, reference_retriever: str) -> str:
-    """Returns the `run_id` identifying the BM25 Reference_Run.
+def _find_reference_run_id(frame: pandas.DataFrame, reference_run_id: str) -> str:
+    """Returns `reference_run_id` after confirming it is present in
+    `frame['run_id']`.
 
-    Raises `MissingReferenceRunError` if no row in `frame` has
-    `retriever == reference_retriever` (Requirement 2.5). This spec's
-    scope declares exactly one chunking strategy, so exactly one such
-    `run_id` is expected; multiple chunking strategies are out of scope
-    (per `docs/PROJECT_BRIEF.md`) and are not specially handled beyond
-    taking the first in sorted order.
+    Performs an EXACT match of `reference_run_id` against
+    `frame['run_id'].unique()` and nothing else -- no filtering by
+    retriever name, no sorting, no "take the first" rule. With three
+    Chunking_Strategy entries now present, an implicit rule could
+    silently select `bm25__fixed_window` instead of the intended
+    `bm25__whole_document` (Requirement 9.3). Raises
+    `MissingReferenceRunError` naming `reference_run_id` exactly if it
+    is not present in `frame['run_id']` (Requirement 9.4).
     """
-    reference_rows = frame[frame["retriever"] == reference_retriever]
-    if reference_rows.empty:
+    if reference_run_id not in set(frame["run_id"].unique()):
         raise MissingReferenceRunError(
-            f"no run identified as the '{reference_retriever}' Reference_Run "
-            f"is present in the per-query report; every comparison is "
-            f"defined relative to the Reference_Run"
+            f"the pinned Reference_Run '{reference_run_id}' is not present in "
+            f"the per-query report; every comparison is defined relative to "
+            f"the Reference_Run, and it is never inferred by sorting run_ids"
         )
-    reference_run_ids = sorted(reference_rows["run_id"].unique())
-    return str(reference_run_ids[0])
+    return reference_run_id
 
 
 def _run_comparisons(
@@ -584,8 +585,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
 
+    reference_run_id = f"{config.reference_retriever}__{config.reference_chunking_strategy}"
     try:
-        reference_run_id = _find_reference_run_id(per_query_frame, config.reference_retriever)
+        reference_run_id = _find_reference_run_id(per_query_frame, reference_run_id)
     except MissingReferenceRunError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1

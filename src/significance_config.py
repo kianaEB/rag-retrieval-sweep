@@ -41,6 +41,7 @@ class SignificanceConfig:
     bootstrap_seed: int
     alpha: float
     reference_retriever: str
+    reference_chunking_strategy: str
     per_query_path: Path
     output_path: Path
     run_config_path: Path
@@ -80,16 +81,22 @@ def load_significance_config(path: Path) -> SignificanceConfig:
     Raises `BootstrapConfigError` (a `ConfigError` subclass) if the
     file is missing, is not valid YAML, omits `resample_count` /
     `permutation_count` / `bootstrap_seed` / `alpha` /
-    `reference_retriever` / `per_query_path` / `output_path`, declares
-    `resample_count` / `permutation_count` / `bootstrap_seed` as
-    anything other than an integer, or declares `alpha` as anything
-    other than the fixed value 0.05 (Requirement 4.5, 6.4).
-    `run_config_path` is the sole exception: if absent from the YAML it
-    defaults to `results/run_config.json` rather than raising
-    (Requirement 4.7), so the merge target is configurable without
-    being mandatory boilerplate in every config. Never partially
-    applies a config: the first violation found raises and no
-    `SignificanceConfig` is returned.
+    `reference_retriever` / `reference_chunking_strategy` /
+    `per_query_path` / `output_path`, declares `resample_count` /
+    `permutation_count` / `bootstrap_seed` as anything other than an
+    integer, or declares `alpha` as anything other than the fixed value
+    0.05 (Requirement 4.5, 6.4). `reference_chunking_strategy` has no
+    default -- unlike `run_config_path`, an implicit default here would
+    reintroduce exactly the "silently pick a strategy" risk Requirement
+    9.3 rules out; combined with `reference_retriever` as
+    `f"{reference_retriever}__{reference_chunking_strategy}"`, it pins
+    the exact Reference_Run `run_id` (Requirement 9.2, 9.3).
+    `run_config_path` is the sole field that defaults rather than
+    raising: if absent from the YAML it defaults to
+    `results/run_config.json` (Requirement 4.7), so the merge target is
+    configurable without being mandatory boilerplate in every config.
+    Never partially applies a config: the first violation found raises
+    and no `SignificanceConfig` is returned.
     """
     path = Path(path)
     if not path.is_file():
@@ -137,6 +144,9 @@ def load_significance_config(path: Path) -> SignificanceConfig:
         )
 
     reference_retriever = _require_field(data, "reference_retriever", context)
+    reference_chunking_strategy = _require_field(
+        data, "reference_chunking_strategy", context
+    )
     per_query_path = _require_field(data, "per_query_path", context)
     output_path = _require_field(data, "output_path", context)
     run_config_path = data.get("run_config_path", DEFAULT_RUN_CONFIG_PATH)
@@ -147,6 +157,7 @@ def load_significance_config(path: Path) -> SignificanceConfig:
         bootstrap_seed=bootstrap_seed,
         alpha=alpha,
         reference_retriever=str(reference_retriever),
+        reference_chunking_strategy=str(reference_chunking_strategy),
         per_query_path=Path(per_query_path),
         output_path=Path(output_path),
         run_config_path=Path(run_config_path),

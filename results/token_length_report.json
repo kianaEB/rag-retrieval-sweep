@@ -3,5 +3,55 @@
   "max_sequence_length": 256,
   "num_documents_total": 5183,
   "num_documents_exceeding": 3681,
-  "fraction_exceeding": 0.710206444144318
+  "fraction_exceeding": 0.710206444144318,
+  "cells": [
+    {
+      "chunking_strategy": "whole_document",
+      "model_name": "sentence-transformers/all-MiniLM-L6-v2",
+      "max_sequence_length": 256,
+      "num_documents_total": 5183,
+      "num_documents_exceeding": 3681,
+      "fraction_exceeding": 0.710206444144318
+    },
+    {
+      "chunking_strategy": "whole_document",
+      "model_name": "BAAI/bge-small-en-v1.5",
+      "max_sequence_length": 512,
+      "num_documents_total": 5183,
+      "num_documents_exceeding": 455,
+      "fraction_exceeding": 0.08778699594829249
+    },
+    {
+      "chunking_strategy": "fixed_window",
+      "model_name": "sentence-transformers/all-MiniLM-L6-v2",
+      "max_sequence_length": 256,
+      "num_documents_total": 22033,
+      "num_documents_exceeding": 0,
+      "fraction_exceeding": 0.0
+    },
+    {
+      "chunking_strategy": "fixed_window",
+      "model_name": "BAAI/bge-small-en-v1.5",
+      "max_sequence_length": 512,
+      "num_documents_total": 22033,
+      "num_documents_exceeding": 0,
+      "fraction_exceeding": 0.0
+    },
+    {
+      "chunking_strategy": "sentence_window",
+      "model_name": "sentence-transformers/all-MiniLM-L6-v2",
+      "max_sequence_length": 256,
+      "num_documents_total": 18908,
+      "num_documents_exceeding": 12,
+      "fraction_exceeding": 0.0006346519991537973
+    },
+    {
+      "chunking_strategy": "sentence_window",
+      "model_name": "BAAI/bge-small-en-v1.5",
+      "max_sequence_length": 512,
+      "num_documents_total": 18908,
+      "num_documents_exceeding": 0,
+      "fraction_exceeding": 0.0
+    }
+  ]
 }

@@ -2,7 +2,21 @@
   "seed": 42,
   "sweep_config": {
     "seed": 42,
-    "chunking_strategy": "whole_document",
+    "chunking_strategies": [
+      {
+        "name": "whole_document"
+      },
+      {
+        "name": "fixed_window",
+        "window_size": 200,
+        "stride": 50
+      },
+      {
+        "name": "sentence_window",
+        "sentences_per_chunk": 3,
+        "max_chunk_tokens": 256
+      }
+    ],
     "cutoffs": [
       1,
       5,
@@ -24,6 +38,12 @@
         "name": "all-MiniLM-L6-v2",
         "type": "dense",
         "model_name": "sentence-transformers/all-MiniLM-L6-v2",
+        "batch_size": 32
+      },
+      {
+        "name": "bge-small-en-v1.5",
+        "type": "dense",
+        "model_name": "BAAI/bge-small-en-v1.5",
         "batch_size": 32
       }
     ],
