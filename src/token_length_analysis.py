@@ -205,21 +205,22 @@ def load_tokenizer_offline(model_name: str, cache_folder: Path) -> "PreTrainedTo
 @dataclass(frozen=True)
 class TokenLengthCell:
     """One of the 6 `(Chunking_Strategy, dense model)` cells
-    (Requirement 11.1). `num_documents_total` is actually "num Chunks
-    total" for this Chunking_Strategy -- named to match
-    `TokenLengthReport`'s pre-existing field name, since the
-    `whole_document` cells (one Chunk per document) keep it
-    numerically equal to a true document count, but `fixed_window`/
-    `sentence_window` cells count Chunks, which exceed the document
-    count. `max_sequence_length` is the model's own EFFECTIVE
-    truncation length -- read via `resolve_effective_max_sequence_length`
-    below, never a hard-coded 256 or 512 (Requirement 11.2)."""
+    (Requirement 11.1). `num_units_total` counts Chunks, not
+    documents, for this Chunking_Strategy: for `whole_document` cells
+    (one Chunk per document) it is numerically equal to a true
+    document count, but `fixed_window`/`sentence_window` cells count
+    Chunks, which exceed the document count -- named `num_units_*`
+    (not `num_documents_*`) precisely so the field name does not imply
+    a document count it isn't. `max_sequence_length` is the model's
+    own EFFECTIVE truncation length -- read via
+    `resolve_effective_max_sequence_length` below, never a hard-coded
+    256 or 512 (Requirement 11.2)."""
 
     chunking_strategy: str
     model_name: str
     max_sequence_length: int
-    num_documents_total: int
-    num_documents_exceeding: int
+    num_units_total: int
+    num_units_exceeding: int
     fraction_exceeding: float
 
 
@@ -301,8 +302,8 @@ def compute_cell(
         chunking_strategy=chunker.strategy_name,
         model_name=tokenizer.name_or_path,
         max_sequence_length=max_sequence_length,
-        num_documents_total=stats.num_documents_total,
-        num_documents_exceeding=stats.num_documents_exceeding,
+        num_units_total=stats.num_documents_total,
+        num_units_exceeding=stats.num_documents_exceeding,
         fraction_exceeding=stats.fraction_exceeding,
     )
 
@@ -520,8 +521,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     report = TokenLengthReport(
         model_name=regression_cell.model_name,
         max_sequence_length=regression_cell.max_sequence_length,
-        num_documents_total=regression_cell.num_documents_total,
-        num_documents_exceeding=regression_cell.num_documents_exceeding,
+        num_documents_total=regression_cell.num_units_total,
+        num_documents_exceeding=regression_cell.num_units_exceeding,
         fraction_exceeding=regression_cell.fraction_exceeding,
         cells=cells,
     )

@@ -123,7 +123,10 @@ def export_hand_checked_sample(
     try:
         frame = pandas.DataFrame([dataclasses.asdict(r) for r in rows])
         _atomic_write_text(
-            output_path, frame.to_csv(index=False), failure_context="hand-checked sample export"
+            output_path,
+            frame.to_csv(index=False),
+            failure_context="hand-checked sample export",
+            newline="",
         )
     except Exception as exc:
         raise HandCheckedSampleWriteError(str(exc)) from exc
@@ -309,7 +312,10 @@ def write_hand_checked_joined(rows: List[HandCheckedJoinedRow], output_path: Pat
     try:
         frame = pandas.DataFrame([dataclasses.asdict(r) for r in rows])
         _atomic_write_text(
-            output_path, frame.to_csv(index=False), failure_context="hand-checked joined export"
+            output_path,
+            frame.to_csv(index=False),
+            failure_context="hand-checked joined export",
+            newline="",
         )
     except Exception as exc:
         raise HandCheckedJoinedWriteError(str(exc)) from exc

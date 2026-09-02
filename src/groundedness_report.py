@@ -70,6 +70,8 @@ def write_groundedness_report(rows: List[GroundednessReportRow], output_path: Pa
             f"failed to build groundedness report for {output_path}: {exc}"
         ) from exc
     try:
-        _atomic_write_text(output_path, csv_text, failure_context="groundedness report")
+        _atomic_write_text(
+            output_path, csv_text, failure_context="groundedness report", newline=""
+        )
     except Exception as exc:
         raise GroundednessReportWriteError(str(exc)) from exc

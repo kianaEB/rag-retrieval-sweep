@@ -81,7 +81,13 @@ _VERSION_TRACKED_PACKAGES: Tuple[str, ...] = (
 )
 
 
-def _atomic_write_text(output_path: Path, text: str, *, failure_context: str) -> None:
+def _atomic_write_text(
+    output_path: Path,
+    text: str,
+    *,
+    failure_context: str,
+    newline: Union[str, None] = None,
+) -> None:
     """Writes `text` to `output_path` atomically.
 
     Writes to a temp file (`output_path` with an added `.tmp` suffix)
@@ -92,12 +98,23 @@ def _atomic_write_text(output_path: Path, text: str, *, failure_context: str) ->
     raised naming `output_path` and `failure_context`, so
     `output_path` is never left partially written or corrupted
     (Requirement 10.4, `design.md` Property 7).
+
+    `newline` is forwarded to `Path.write_text` unchanged (default
+    `None`, i.e. Python's own universal-newline translation of every
+    `"\\n"` in `text` to `os.linesep`). CSV callers -- whose `text` was
+    already produced by `pandas.DataFrame.to_csv()`, and so already
+    contains an explicit `"\\r\\n"` on every line -- MUST pass
+    `newline=""` so that embedded `"\\r\\n"` is written byte-for-byte
+    instead of being run through a second, redundant `"\\n"` ->
+    `os.linesep` translation that would double it into `"\\r\\r\\n"`
+    on Windows. JSON/Markdown callers, whose `text` contains only bare
+    `"\\n"`, are unaffected either way and keep the default.
     """
     output_path = Path(output_path)
     tmp_path = output_path.with_suffix(output_path.suffix + ".tmp")
     try:
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        tmp_path.write_text(text, encoding="utf-8")
+        tmp_path.write_text(text, encoding="utf-8", newline=newline)
         os.replace(tmp_path, output_path)
     except Exception as exc:
         if tmp_path.exists():
@@ -140,7 +157,7 @@ def write_sweep_report(rows: List[SweepReportRow], output_path: Path) -> None:
         raise ReportWriteError(
             f"failed to build sweep report for {output_path}: {exc}"
         ) from exc
-    _atomic_write_text(output_path, csv_text, failure_context="sweep report")
+    _atomic_write_text(output_path, csv_text, failure_context="sweep report", newline="")
 
 
 def _json_default(value: object) -> str:

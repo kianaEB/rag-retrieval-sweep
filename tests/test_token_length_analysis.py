@@ -203,8 +203,8 @@ def test_compute_cell_whole_document_matches_hand_computed_exceedance_fraction()
         independently_computed_counts, max_sequence_length=max_sequence_length
     )
 
-    assert cell.num_documents_total == expected_stats.num_documents_total == 7
-    assert cell.num_documents_exceeding == expected_stats.num_documents_exceeding
+    assert cell.num_units_total == expected_stats.num_documents_total == 7
+    assert cell.num_units_exceeding == expected_stats.num_documents_exceeding
     assert cell.fraction_exceeding == pytest.approx(expected_stats.fraction_exceeding, abs=1e-9)
     assert cell.max_sequence_length == max_sequence_length
     assert cell.chunking_strategy == "whole_document"

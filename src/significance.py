@@ -463,13 +463,18 @@ def _write_significance_report(rows: List[SignificanceReportRow], output_path: P
             f"failed to build significance report for {output_path}: {exc}"
         ) from exc
     try:
-        _atomic_write_text(output_path, csv_text, failure_context="significance report")
+        _atomic_write_text(
+            output_path, csv_text, failure_context="significance report", newline=""
+        )
     except ReportWriteError as exc:
         raise SignificanceWriteError(str(exc)) from exc
 
 
 def _merge_significance_into_run_config(
-    run_config_record: dict, config: SignificanceConfig, run_config_path: Path
+    run_config_record: dict,
+    config: SignificanceConfig,
+    reference_run_id: str,
+    run_config_path: Path,
 ) -> None:
     """Merges the `"significance"` sub-object into `run_config_record`
     and re-writes `run_config_path` atomically, preserving every
@@ -478,9 +483,17 @@ def _merge_significance_into_run_config(
 
     The recorded `bootstrap_seed`/`resample_count`/`permutation_count`/
     `alpha` are the values actually applied for this run (Requirement
-    4.4). Raises `RunConfigMergeError` if serialization or the atomic
-    write fails (Requirement 4.6); the original `run_config_path` is
-    left untouched on failure.
+    4.4). Also records `reference_retriever`/`reference_chunking_strategy`
+    (the pinned config fields) and `reference_run_id` (the exact,
+    derived `run_id` this run actually compared every other run
+    against, `f"{reference_retriever}__{reference_chunking_strategy}"`,
+    the same value passed to `_find_reference_run_id`) -- Requirement
+    9.3's whole point is that the Reference_Run is pinned explicitly
+    rather than inferred, so the run record should state which run_id
+    that pin actually resolved to, not just the two fields it was
+    built from. Raises `RunConfigMergeError` if serialization or the
+    atomic write fails (Requirement 4.6); the original
+    `run_config_path` is left untouched on failure.
     """
     record = dict(run_config_record)
     record["significance"] = {
@@ -488,6 +501,9 @@ def _merge_significance_into_run_config(
         "resample_count": config.resample_count,
         "permutation_count": config.permutation_count,
         "alpha": config.alpha,
+        "reference_retriever": config.reference_retriever,
+        "reference_chunking_strategy": config.reference_chunking_strategy,
+        "reference_run_id": reference_run_id,
     }
     try:
         json_text = json.dumps(record, indent=2, default=_json_default)
@@ -557,7 +573,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     8. Write `results/significance.csv` atomically. On
        `SignificanceWriteError`: print the error, return non-zero
        (Requirement 2.7).
-    9. Merge the `"significance"` sub-object into
+    9. Merge the `"significance"` sub-object -- including the pinned
+       `reference_retriever`/`reference_chunking_strategy` and the
+       derived `reference_run_id` this run actually used -- into
        `config.run_config_path` atomically, preserving every existing
        key. On `RunConfigMergeError`: print the error, return non-zero
        (Requirement 4.6). Otherwise return 0 (Requirement 2.6).
@@ -609,7 +627,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         return 1
 
     try:
-        _merge_significance_into_run_config(run_config_record, config, config.run_config_path)
+        _merge_significance_into_run_config(
+            run_config_record, config, reference_run_id, config.run_config_path
+        )
     except RunConfigMergeError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1

@@ -85,7 +85,7 @@ def write_per_query_report(rows: List[PerQueryReportRow], output_path: Path) -> 
             f"failed to build per-query report for {output_path}: {exc}"
         ) from exc
     try:
-        _atomic_write_text(output_path, csv_text, failure_context="per-query report")
+        _atomic_write_text(output_path, csv_text, failure_context="per-query report", newline="")
     except Exception as exc:
         raise PerQueryReportError(
             f"failed to write per-query report to {output_path}: {exc}"

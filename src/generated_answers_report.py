@@ -64,6 +64,8 @@ def write_generated_answers_report(
             f"failed to build generated-answers report for {output_path}: {exc}"
         ) from exc
     try:
-        _atomic_write_text(output_path, csv_text, failure_context="generated-answers report")
+        _atomic_write_text(
+            output_path, csv_text, failure_context="generated-answers report", newline=""
+        )
     except Exception as exc:
         raise GeneratedAnswersWriteError(str(exc)) from exc
