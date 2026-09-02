@@ -1,4 +1,5 @@
-"""Verification_Pass: checks every Numeric_Claim in `README.md`/`SPEC.md`
+"""Verification_Pass: checks every Numeric_Claim in
+`README.md`/`SPEC.md`/`ANALYSIS.md`
 against the committed traceability ledger `docs/numeric_traceability.csv`
 and the artifact it cites (Requirement 12,
 `.kiro/specs/repo-writeup/design.md`'s `src/verify_writeup_numbers.py`
@@ -9,9 +10,9 @@ order:
 
 1. **Document-presence check.** Confirms `row.stated_value` still
    occurs, as a literal substring, in the full text of the document
-   (`README.md` or `SPEC.md`) the row cites. A miss returns
-   immediately with `failure_mode="value_not_in_document"`, without
-   ever touching the cited artifact.
+   (`README.md`, `SPEC.md`, or `ANALYSIS.md`) the row cites. A miss
+   returns immediately with `failure_mode="value_not_in_document"`,
+   without ever touching the cited artifact.
 2. **Ledger-to-artifact comparison.** Only reached once (1) passes.
    Resolves the cited artifact value(s) via `load_artifact_values`,
    applies the row's `computation` via `apply_computation`, rounds
@@ -100,6 +101,8 @@ _CSV_ARTIFACTS = (
     "groundedness.csv",
     "hand_checked_joined.csv",
     "generated_answers.csv",
+    "failure_buckets.csv",
+    "failure_bucket_counts.csv",
 )
 
 _NDP_PATTERN = re.compile(r"(\d+)dp")
@@ -781,9 +784,9 @@ def _parse_args(argv: Optional[Sequence[str]]) -> argparse.Namespace:
         prog="python -m src.verify_writeup_numbers",
         description=(
             "Checks every Numeric_Claim row in docs/numeric_traceability.csv "
-            "against its cited document (README.md/SPEC.md) and its cited "
-            "artifact under results/. Prints MATCH/MISMATCH per row and a "
-            "summary; exits 0 only if every row matched."
+            "against its cited document (README.md/SPEC.md/ANALYSIS.md) and "
+            "its cited artifact under results/. Prints MATCH/MISMATCH per row "
+            "and a summary; exits 0 only if every row matched."
         ),
     )
     parser.add_argument(

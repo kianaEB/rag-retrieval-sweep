@@ -262,3 +262,104 @@ class ChunkingConfigError(ConfigError):
     a positive integer (Requirement 7.6). A ConfigError subclass,
     mirroring UnsupportedPreprocessingError's relationship to
     ConfigError."""
+
+
+# --- analysis-writeup spec: extends the hierarchy above ---
+
+
+class FailureBucketInputError(Exception):
+    """results/per_query.csv is absent, cannot be parsed as a CSV, or
+    lacks one of the columns the Bucket_Assigner requires -- run_id,
+    retriever, chunking_strategy, query_id, recall_at_1, recall_at_20,
+    ndcg_at_10, num_judged_relevant (Requirement 2.5). The
+    analysis-writeup analogue of SignificanceInputError: halts before
+    either report is written.
+
+    Raised from exactly one place: load_per_query. Concerns a COMMITTED
+    artifact under results/ -- distinct from CovariateInputError, which
+    concerns the gitignored data/ cache."""
+
+
+class CovariateInputError(Exception):
+    """A Covariate_Enrichment_Stage input is unavailable or
+    unresolvable: the BEIR SciFact dataset directory is absent from the
+    Local_Cache, the loaded Qrels are absent or empty, a Dense_Model's
+    tokenizer snapshot directory is absent from the Local_Cache, or a
+    query_id present in results/per_query.csv is absent from the loaded
+    query set (Requirement 16.13).
+
+    Requirement 16.15 requires these four conditions to share ONE error
+    type: they are one distinguishable failure -- "the covariate inputs
+    are not available" -- with one remedy (populate data/ by running the
+    sweep, then re-run), and no caller can usefully branch between them.
+    The MESSAGE names which of the four it was. Halts before either
+    report is written, leaving any pre-existing copy of either file
+    byte-for-byte in its pre-run state (Requirement 16.13), and never
+    downloads anything or substitutes a default (Requirement 16.14).
+
+    Raise sites: assert_local_cache_present, load_covariate_inputs
+    (wrapping CorpusLoadError / CorpusValidationError from load_scifact
+    and TokenizerLoadError from load_tokenizer_offline), and
+    compute_token_length_covariates (the query-coverage check)."""
+
+
+class ContrastQuerySetError(Exception):
+    """A Pair_Contrast's two Run_Ids do not cover the same query_id set
+    -- a query_id is present for Run_A and absent for Run_B, or the
+    reverse -- or one of the Pair_Contrast's Run_Ids is absent from
+    results/per_query.csv entirely (Requirement 4.6). A Contrast_Bucket
+    partition over an asymmetric query set has no total partition, so
+    this halts before either report is written.
+
+    Raise sites: build_declared_contrast_set (an absent Run_Id) and
+    build_contrast_counts (an asymmetric query set). Reports a
+    data-coverage fault in the INPUT -- distinct from
+    FailureBucketAssertionError, which reports a violated invariant in
+    this module's own arithmetic."""
+
+
+class FailureBucketAssertionError(Exception):
+    """A pre-write invariant did not hold. Covers every assert_* helper
+    in the module, because all of them check the same kind of thing --
+    a property this module's own computation is supposed to guarantee --
+    and none of them is separately actionable by a caller:
+
+      - a Run_Id's or Pair_Contrast's four bucket counts do not sum to
+        the query count that partition covers (Requirement 5.1, 5.2);
+      - a (run_id, query_id) pair is labelled more than once, including
+        after the covariate join (Requirement 5.3);
+      - a run_id's four unrounded fractions do not sum to 1 within
+        FRACTION_SUM_TOLERANCE (Requirement 5.4), or their 6-decimal
+        renderings do not sum to 1 within RENDERED_FRACTION_TOLERANCE
+        (Requirement 5.7);
+      - a Run_Id read from results/per_query.csv contains the
+        four-character Composite_Run_Id separator "|vs|", so a
+        Composite_Run_Id could collide with a Run_Id in the counts
+        report's shared run_id column (Requirement 7.6) -- folded in
+        here from what would otherwise be a fifth type with a single
+        assert_* raise site;
+      - a query_id's six covariate values are not identical across
+        every row carrying that query_id (Requirement 16.9), or a
+        max_relevant_doc_token_len / any_relevant_doc_exceeds_limit
+        cell holds a numeric 0 where the Missing_Value_Sentinel was
+        required (Requirement 16.8);
+      - a duplicate Pair_Contrast would be emitted (Requirement 4.5).
+
+    Names the affected Run_Id, Pair_Contrast, query_id, or run_id, the
+    observed value, and the expected value (Requirement 5.5). Halts
+    before either report is written, leaving any pre-existing copy of
+    either file byte-for-byte in its pre-run state."""
+
+
+class FailureBucketWriteError(Exception):
+    """results/failure_buckets.csv or results/failure_bucket_counts.csv
+    could not be written (disk full, permissions). The
+    analysis-writeup analogue of ReportWriteError. Distinct from the
+    four validation errors above: this is an I/O failure reached only
+    after every assertion has already passed, so the error message
+    states which of the two paths failed and whether the other was
+    already written.
+
+    Raise sites: write_failure_buckets and
+    write_failure_bucket_counts, both wrapping ReportWriteError from
+    src.report._atomic_write_text."""

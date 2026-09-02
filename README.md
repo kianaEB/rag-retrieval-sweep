@@ -4,7 +4,8 @@
 
 A controlled empirical study of when dense retrieval beats a lexical
 baseline, on BEIR SciFact. See `SPEC.md` for the full design and
-threats to validity.
+threats to validity, and `ANALYSIS.md` for the mechanism /
+failure-bucket analysis.
 
 ## Headline finding
 
