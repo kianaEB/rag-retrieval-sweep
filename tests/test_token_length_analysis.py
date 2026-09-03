@@ -54,6 +54,24 @@ from src.token_length_analysis import (
 # path. This is the same model configs/sweep.yaml declares.
 _REAL_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 
+# Local_Cache_Availability, the same gate `tests/test_chunking.py` and
+# `tests/test_data_layer.py` already apply: the all-MiniLM-L6-v2 snapshot
+# must be present under `data/hf_cache`. `data/` is gitignored, so a clean
+# checkout (CI) has no cache and every test needing the real tokenizer
+# skips instead of failing. `load_tokenizer_offline` passes
+# `local_files_only=True`, so on a cache miss it raises rather than
+# reaching the network -- which is the behaviour Property 4 above asserts,
+# and the reason a cache-dependent test must be gated rather than left to
+# fail.
+_TOKENIZER_CACHE_DIR = Path("data/hf_cache")
+_TOKENIZER_SNAPSHOT_MARKER = (
+    _TOKENIZER_CACHE_DIR / "models--sentence-transformers--all-MiniLM-L6-v2"
+)
+
+
+def _local_tokenizer_cache_available() -> bool:
+    return _TOKENIZER_SNAPSHOT_MARKER.exists()
+
 
 # ---------------------------------------------------------------------------
 # compute_exceedance_stats -- Property 1 (boundary cases)
@@ -141,6 +159,13 @@ def test_load_tokenizer_offline_raises_on_empty_cache_no_network_call():
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.skipif(
+    not _local_tokenizer_cache_available(),
+    reason=(
+        "requires a local all-MiniLM-L6-v2 tokenizer cache under "
+        "data/hf_cache; skipped on a clean checkout"
+    ),
+)
 def test_compute_cell_whole_document_matches_hand_computed_exceedance_fraction():
     """Reuses the exact hand-built token-count fixture from
     `test_compute_exceedance_stats_mixed_list_hand_computed_fraction`
